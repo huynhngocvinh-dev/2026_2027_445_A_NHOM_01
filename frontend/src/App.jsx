@@ -1,4 +1,5 @@
-function App() {
+// Ban ĐẦu
+/* function App() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-blue-500">
       <h1 className="text-4xl font-bold text-white">
@@ -8,4 +9,23 @@ function App() {
   )
 }
 
-export default App
+export default App */
+
+
+// Đăng Nhập
+/*import LoginPage from "./pages/LoginPage";
+
+function App() {
+  return <LoginPage />;
+}
+
+export default App;*/
+
+// Đăng Ký
+import RegisterPage from "./pages/RegisterPage";
+
+function App() {
+  return <RegisterPage />;
+}
+
+export default App;
