@@ -13,19 +13,10 @@ export default App */
 
 
 // Đăng Nhập
-/*import LoginPage from "./pages/LoginPage";
+import LoginPage from "./pages/LoginPage";
 
 function App() {
   return <LoginPage />;
-}
-
-export default App;*/
-
-// Đăng Ký
-import RegisterPage from "./pages/RegisterPage";
-
-function App() {
-  return <RegisterPage />;
 }
 
 export default App;
