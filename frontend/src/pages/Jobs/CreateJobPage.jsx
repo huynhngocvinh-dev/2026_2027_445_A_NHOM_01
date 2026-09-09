@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:8080";
+
 function CreateJobPage() {
   const [formData, setFormData] = useState({
     jobTitle: "",
@@ -16,6 +19,12 @@ function CreateJobPage() {
     companyImage: null,
   });
 
+  const [loading, setLoading] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(false);
+
+  // =========================
+  // HANDLE INPUT
+  // =========================
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -25,57 +34,292 @@ function CreateJobPage() {
     }));
   };
 
+  // =========================
+  // HANDLE IMAGE
+  // =========================
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
 
-    if (file) {
-      setFormData((prev) => ({
-        ...prev,
-        companyImage: file,
-      }));
+    if (!file) return;
+
+    // Chỉ cho phép hình ảnh
+    if (!file.type.startsWith("image/")) {
+      alert("Vui lòng chọn file hình ảnh!");
+      return;
     }
+
+    // Giới hạn 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Hình ảnh không được vượt quá 5MB!");
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      companyImage: file,
+    }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
+  // =========================
+  // VALIDATE
+  // =========================
+  const validateForm = () => {
     if (!formData.jobTitle.trim()) {
       alert("Vui lòng nhập tên công việc!");
-      return;
+      return false;
+    }
+
+    if (!formData.companyName.trim()) {
+      alert("Vui lòng nhập tên công ty!");
+      return false;
+    }
+
+    if (!formData.hrEmail.trim()) {
+      alert("Vui lòng nhập Email HR!");
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(formData.hrEmail.trim())) {
+      alert("Email HR không hợp lệ!");
+      return false;
     }
 
     if (!formData.description.trim()) {
       alert("Vui lòng nhập mô tả công việc!");
-      return;
+      return false;
     }
 
     if (!formData.requirements.trim()) {
       alert("Vui lòng nhập yêu cầu ứng viên!");
-      return;
+      return false;
     }
 
     if (!formData.location.trim()) {
       alert("Vui lòng nhập địa điểm!");
+      return false;
+    }
+
+    if (!formData.jobType) {
+      alert("Vui lòng chọn loại công việc!");
+      return false;
+    }
+
+    if (
+      formData.minSalary !== "" &&
+      Number(formData.minSalary) < 0
+    ) {
+      alert("Mức lương tối thiểu không hợp lệ!");
+      return false;
+    }
+
+    if (
+      formData.maxSalary !== "" &&
+      Number(formData.maxSalary) < 0
+    ) {
+      alert("Mức lương tối đa không hợp lệ!");
+      return false;
+    }
+
+    if (
+      formData.minSalary !== "" &&
+      formData.maxSalary !== "" &&
+      Number(formData.minSalary) > Number(formData.maxSalary)
+    ) {
+      alert("Mức lương tối thiểu không được lớn hơn mức lương tối đa!");
+      return false;
+    }
+
+    return true;
+  };
+
+  // =========================
+  // CREATE JSON PAYLOAD
+  // =========================
+  const createPayload = () => {
+    return {
+      jobTitle: formData.jobTitle.trim(),
+      companyName: formData.companyName.trim(),
+      hrEmail: formData.hrEmail.trim(),
+      description: formData.description.trim(),
+      requirements: formData.requirements.trim(),
+      benefits: formData.benefits.trim(),
+
+      minSalary:
+        formData.minSalary === ""
+          ? null
+          : Number(formData.minSalary),
+
+      maxSalary:
+        formData.maxSalary === ""
+          ? null
+          : Number(formData.maxSalary),
+
+      location: formData.location.trim(),
+      jobType: formData.jobType,
+      experience: formData.experience,
+
+      // Nếu Backend xử lý upload ảnh riêng,
+      // file này sẽ được gửi qua API upload riêng.
+      companyImageName: formData.companyImage
+        ? formData.companyImage.name
+        : null,
+    };
+  };
+
+  // =========================
+  // POST CREATE JOB
+  // =========================
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
       return;
     }
 
-    console.log("📤 DỮ LIỆU TẠO BÀI ĐĂNG:");
-    console.log(formData);
+    const payload = createPayload();
 
-    alert("Đăng tin tuyển dụng thành công!");
+    console.log("=================================");
+    console.log("📤 DỮ LIỆU TẠO BÀI ĐĂNG");
+    console.log("=================================");
+    console.log(JSON.stringify(payload, null, 2));
+
+    console.log("🌐 API:", `${API_URL}/api/jobs`);
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/jobs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+
+      console.log("📥 RESPONSE BACKEND:");
+      console.log(data);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            data?.error ||
+            `Đăng tin thất bại. HTTP ${response.status}`
+        );
+      }
+
+      alert("Đăng tin tuyển dụng thành công!");
+
+      // Reset form
+      setFormData({
+        jobTitle: "",
+        companyName: "FPT Software",
+        hrEmail: "hr@fpt.com.vn",
+        description: "",
+        requirements: "",
+        benefits: "",
+        minSalary: "",
+        maxSalary: "",
+        location: "",
+        jobType: "",
+        experience: "",
+        companyImage: null,
+      });
+    } catch (error) {
+      console.error("❌ LỖI ĐĂNG TIN:");
+      console.error(error);
+
+      if (error instanceof TypeError) {
+        alert(
+          "Không thể kết nối đến Backend!\n\n" +
+            "Kiểm tra:\n" +
+            "1. Backend đã chạy chưa?\n" +
+            "2. Backend có chạy port 8080 không?\n" +
+            "3. API /api/jobs có tồn tại không?\n" +
+            "4. Backend đã cấu hình CORS chưa?"
+        );
+      } else {
+        alert(error.message);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSaveDraft = () => {
-    console.log("💾 LƯU BẢN NHÁP:");
-    console.log(formData);
+  // =========================
+  // SAVE DRAFT
+  // =========================
+  const handleSaveDraft = async () => {
+    const payload = createPayload();
 
-    alert("Đã lưu bản nháp!");
+    console.log("=================================");
+    console.log("💾 LƯU BẢN NHÁP");
+    console.log("=================================");
+    console.log(JSON.stringify(payload, null, 2));
+
+    setDraftLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/jobs/draft`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+
+      console.log("📥 RESPONSE BACKEND:");
+      console.log(data);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            data?.error ||
+            `Lưu bản nháp thất bại. HTTP ${response.status}`
+        );
+      }
+
+      alert("Đã lưu bản nháp thành công!");
+    } catch (error) {
+      console.error("❌ LỖI LƯU BẢN NHÁP:");
+      console.error(error);
+
+      if (error instanceof TypeError) {
+        alert("Không thể kết nối đến Backend!");
+      } else {
+        alert(error.message);
+      }
+    } finally {
+      setDraftLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* ================= HEADER ================= */}
-      <header className="fixed top-0 right-0 left-60 z-30 h-14 border-b border-slate-200 bg-white">
+      {/* =========================================
+          HEADER
+      ========================================= */}
+      <header className="fixed left-60 right-0 top-0 z-30 h-14 border-b border-slate-200 bg-white">
         <div className="flex h-full items-center justify-end px-6">
           <button
             type="button"
@@ -100,7 +344,9 @@ function CreateJobPage() {
         </div>
       </header>
 
-      {/* ================= SIDEBAR ================= */}
+      {/* =========================================
+          SIDEBAR
+      ========================================= */}
       <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col bg-slate-950 text-white">
         {/* Logo */}
         <div className="border-b border-slate-800 px-5 py-5">
@@ -121,7 +367,9 @@ function CreateJobPage() {
               </svg>
             </div>
 
-            <span className="text-lg font-bold">JobCrawler</span>
+            <span className="text-lg font-bold">
+              JobFinder
+            </span>
           </div>
 
           <p className="mt-1 text-xs text-blue-300">
@@ -131,10 +379,7 @@ function CreateJobPage() {
 
         {/* Menu */}
         <nav className="flex-1 px-3 py-4">
-          <SidebarItem
-            icon="home"
-            text="Dashboard"
-          />
+          <SidebarItem icon="home" text="Dashboard" />
 
           <SidebarItem
             icon="building"
@@ -171,7 +416,10 @@ function CreateJobPage() {
             </div>
 
             <div>
-              <p className="text-sm font-semibold">FPT Software</p>
+              <p className="text-sm font-semibold">
+                FPT Software
+              </p>
+
               <p className="text-xs text-slate-400">
                 hr@fpt.com.vn
               </p>
@@ -180,7 +428,9 @@ function CreateJobPage() {
         </div>
       </aside>
 
-      {/* ================= MAIN ================= */}
+      {/* =========================================
+          MAIN
+      ========================================= */}
       <main className="ml-60 pt-14">
         <div className="px-6 py-7">
           {/* Title */}
@@ -196,9 +446,13 @@ function CreateJobPage() {
 
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_405px]">
-              {/* ================= LEFT ================= */}
+              {/* =====================================
+                  LEFT
+              ===================================== */}
               <div className="space-y-5">
-                {/* Thông tin cơ bản */}
+                {/* =====================================
+                    THÔNG TIN CƠ BẢN
+                ===================================== */}
                 <section className="rounded-2xl border border-slate-200 bg-white p-6">
                   <h2 className="mb-6 text-base font-bold text-slate-900">
                     Thông tin cơ bản
@@ -207,7 +461,8 @@ function CreateJobPage() {
                   {/* Job title */}
                   <div className="mb-4">
                     <label className="mb-2 block text-sm font-medium text-slate-800">
-                      Tên công việc <span className="text-red-500">*</span>
+                      Tên công việc{" "}
+                      <span className="text-red-500">*</span>
                     </label>
 
                     <input
@@ -220,7 +475,7 @@ function CreateJobPage() {
                     />
                   </div>
 
-                  {/* Company + Email */}
+                  {/* Company + HR */}
                   <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-800">
@@ -254,14 +509,15 @@ function CreateJobPage() {
                   {/* Description */}
                   <div className="mb-4">
                     <label className="mb-2 block text-sm font-medium text-slate-800">
-                      Mô tả công việc <span className="text-red-500">*</span>
+                      Mô tả công việc{" "}
+                      <span className="text-red-500">*</span>
                     </label>
 
                     <textarea
                       name="description"
                       value={formData.description}
                       onChange={handleChange}
-                      rows="5"
+                      rows={5}
                       placeholder="Mô tả chi tiết về vị trí này..."
                       className="w-full resize-none rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
@@ -270,14 +526,15 @@ function CreateJobPage() {
                   {/* Requirements */}
                   <div className="mb-4">
                     <label className="mb-2 block text-sm font-medium text-slate-800">
-                      Yêu cầu ứng viên <span className="text-red-500">*</span>
+                      Yêu cầu ứng viên{" "}
+                      <span className="text-red-500">*</span>
                     </label>
 
                     <textarea
                       name="requirements"
                       value={formData.requirements}
                       onChange={handleChange}
-                      rows="5"
+                      rows={5}
                       placeholder="Kinh nghiệm, kỹ năng, trình độ học vấn..."
                       className="w-full resize-none rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
@@ -293,14 +550,16 @@ function CreateJobPage() {
                       name="benefits"
                       value={formData.benefits}
                       onChange={handleChange}
-                      rows="4"
+                      rows={4}
                       placeholder="Phúc lợi, chế độ làm việc, cơ hội phát triển..."
                       className="w-full resize-none rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
                 </section>
 
-                {/* Điều kiện làm việc */}
+                {/* =====================================
+                    ĐIỀU KIỆN LÀM VIỆC
+                ===================================== */}
                 <section className="rounded-2xl border border-slate-200 bg-white p-6">
                   <h2 className="mb-6 text-base font-bold text-slate-900">
                     Điều kiện làm việc
@@ -315,6 +574,7 @@ function CreateJobPage() {
 
                       <input
                         type="number"
+                        min="0"
                         name="minSalary"
                         value={formData.minSalary}
                         onChange={handleChange}
@@ -331,6 +591,7 @@ function CreateJobPage() {
 
                       <input
                         type="number"
+                        min="0"
                         name="maxSalary"
                         value={formData.maxSalary}
                         onChange={handleChange}
@@ -342,7 +603,8 @@ function CreateJobPage() {
                     {/* Location */}
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-800">
-                        Địa điểm <span className="text-red-500">*</span>
+                        Địa điểm{" "}
+                        <span className="text-red-500">*</span>
                       </label>
 
                       <input
@@ -358,7 +620,8 @@ function CreateJobPage() {
                     {/* Job type */}
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-800">
-                        Loại công việc <span className="text-red-500">*</span>
+                        Loại công việc{" "}
+                        <span className="text-red-500">*</span>
                       </label>
 
                       <select
@@ -367,12 +630,29 @@ function CreateJobPage() {
                         onChange={handleChange}
                         className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       >
-                        <option value="">Chọn loại</option>
-                        <option value="full-time">Full-time</option>
-                        <option value="part-time">Part-time</option>
-                        <option value="remote">Remote</option>
-                        <option value="hybrid">Hybrid</option>
-                        <option value="internship">Internship</option>
+                        <option value="">
+                          Chọn loại
+                        </option>
+
+                        <option value="full-time">
+                          Full-time
+                        </option>
+
+                        <option value="part-time">
+                          Part-time
+                        </option>
+
+                        <option value="remote">
+                          Remote
+                        </option>
+
+                        <option value="hybrid">
+                          Hybrid
+                        </option>
+
+                        <option value="internship">
+                          Internship
+                        </option>
                       </select>
                     </div>
 
@@ -388,19 +668,33 @@ function CreateJobPage() {
                         onChange={handleChange}
                         className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                       >
-                        <option value="">Chọn kinh nghiệm</option>
+                        <option value="">
+                          Chọn kinh nghiệm
+                        </option>
+
                         <option value="no-experience">
                           Chưa có kinh nghiệm
                         </option>
-                        <option value="1-3">1 - 3 năm</option>
-                        <option value="3-5">3 - 5 năm</option>
-                        <option value="5+">Trên 5 năm</option>
+
+                        <option value="1-3">
+                          1 - 3 năm
+                        </option>
+
+                        <option value="3-5">
+                          3 - 5 năm
+                        </option>
+
+                        <option value="5+">
+                          Trên 5 năm
+                        </option>
                       </select>
                     </div>
                   </div>
                 </section>
 
-                {/* Hình ảnh công ty */}
+                {/* =====================================
+                    IMAGE
+                ===================================== */}
                 <section className="rounded-2xl border border-slate-200 bg-white p-6">
                   <h2 className="mb-6 text-base font-bold text-slate-900">
                     Hình ảnh công ty{" "}
@@ -427,9 +721,9 @@ function CreateJobPage() {
                       />
                     </svg>
 
-                    <span className="text-sm text-slate-500">
+                    <span className="px-4 text-center text-sm text-slate-500">
                       {formData.companyImage
-                        ? formData.companyImage.name
+                        ? `Đã chọn: ${formData.companyImage.name}`
                         : "Tải lên hình ảnh văn phòng, môi trường làm việc"}
                     </span>
 
@@ -444,7 +738,9 @@ function CreateJobPage() {
                 </section>
               </div>
 
-              {/* ================= RIGHT ================= */}
+              {/* =====================================
+                  RIGHT - PUBLISH
+              ===================================== */}
               <div>
                 <section className="sticky top-20 rounded-2xl border border-slate-200 bg-white p-5">
                   <h2 className="mb-5 text-base font-bold text-slate-900">
@@ -487,22 +783,29 @@ function CreateJobPage() {
                   {/* Publish */}
                   <button
                     type="submit"
-                    className="mt-2 h-11 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
+                    disabled={loading || draftLoading}
+                    className="mt-2 h-11 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Đăng tin
+                    {loading
+                      ? "Đang đăng..."
+                      : "Đăng tin"}
                   </button>
 
                   {/* Save draft */}
                   <button
                     type="button"
                     onClick={handleSaveDraft}
-                    className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-800 transition hover:bg-slate-50"
+                    disabled={loading || draftLoading}
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Lưu nháp
+                    {draftLoading
+                      ? "Đang lưu..."
+                      : "Lưu nháp"}
                   </button>
 
                   <p className="mt-3 text-center text-xs text-slate-400">
-                    Tin sẽ được xét duyệt và xuất bản trong 24 giờ
+                    Tin sẽ được xét duyệt và xuất bản
+                    trong 24 giờ
                   </p>
                 </section>
               </div>
@@ -514,9 +817,15 @@ function CreateJobPage() {
   );
 }
 
-/* ================= SIDEBAR ITEM ================= */
+/* =========================================
+   SIDEBAR ITEM
+========================================= */
 
-function SidebarItem({ icon, text, active = false }) {
+function SidebarItem({
+  icon,
+  text,
+  active = false,
+}) {
   return (
     <button
       type="button"
@@ -527,12 +836,15 @@ function SidebarItem({ icon, text, active = false }) {
       }`}
     >
       <SidebarIcon icon={icon} />
+
       <span>{text}</span>
     </button>
   );
 }
 
-/* ================= ICON ================= */
+/* =========================================
+   SIDEBAR ICON
+========================================= */
 
 function SidebarIcon({ icon }) {
   const common = {
