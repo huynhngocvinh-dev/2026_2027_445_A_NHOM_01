@@ -1,5 +1,10 @@
 import { useState } from "react";
 
+<<<<<<< HEAD
+=======
+import { useState } from "react";
+
+>>>>>>> origin/dev/ThuyVuong
 function LoginPage() {
   // STATE
   const [formData, setFormData] = useState({
