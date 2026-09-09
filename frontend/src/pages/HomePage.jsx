@@ -123,7 +123,7 @@ function HomePage() {
               </div>
 
               <span className="text-xl font-bold tracking-tight">
-                JobFinder
+                JobCrawler
               </span>
             </div>
 
@@ -680,10 +680,6 @@ function HomePage() {
                 </svg>
 
               </div>
-
-              <span className="font-bold text-gray-800">
-                JobFinder
-              </span>
 
             </div>
 
