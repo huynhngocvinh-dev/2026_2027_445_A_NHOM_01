@@ -1,22 +1,19 @@
-// Ban ĐẦu
-/* function App() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-blue-500">
-      <h1 className="text-4xl font-bold text-white">
-          Giao dien 
-      </h1>
-    </div>
-  )
-}
-
-export default App */
-
-
-// Đăng Nhập
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
 
 function App() {
-  return <LoginPage />;
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Tự động chuyển hướng về trang /login khi vào trang chủ */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default App;
