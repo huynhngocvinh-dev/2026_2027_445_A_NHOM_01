@@ -1,6 +1,7 @@
 import { useState } from "react";
-
+import { useNavigate } from "react-router-dom";
 function LoginPage() {
+  const navigate = useNavigate();
   // STATE
   const [formData, setFormData] = useState({
     email: "",
@@ -31,17 +32,14 @@ function LoginPage() {
 
     if (!formData.email.trim()) {
       newErrors.email = "Vui lòng nhập email";
-    } else if (
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
-    ) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Email không đúng định dạng";
     }
 
     if (!formData.password.trim()) {
       newErrors.password = "Vui lòng nhập mật khẩu";
     } else if (formData.password.length < 6) {
-      newErrors.password =
-        "Mật khẩu phải có ít nhất 6 ký tự";
+      newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
     }
 
     setErrors(newErrors);
@@ -67,23 +65,22 @@ function LoginPage() {
     console.log("Dữ liệu chuẩn bị gửi API:");
     console.log(loginData);
     console.log("===========================");
+    navigate("/admin");
   };
 
   // JSX
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] flex items-center justify-center px-6 py-10">
-
-    {/* ==============================
+      {/* ==============================
     BACKGROUND XANH
     Phủ TOÀN BỘ màn hình
 ============================== */}
 
-<div className="fixed inset-0 overflow-hidden -z-0">
-
-  {/* Nền xanh toàn màn hình */}
-  <div
-    className="
+      <div className="fixed inset-0 overflow-hidden -z-0">
+        {/* Nền xanh toàn màn hình */}
+        <div
+          className="
       absolute
       inset-0
       bg-gradient-to-br
@@ -91,12 +88,11 @@ function LoginPage() {
       via-[#b8d3f0]
       to-[#82acd8]
     "
-  ></div>
+        ></div>
 
-
-  {/* Hình khối 1 */}
-  <div
-    className="
+        {/* Hình khối 1 */}
+        <div
+          className="
       absolute
       top-[12%]
       left-[7%]
@@ -108,16 +104,15 @@ function LoginPage() {
       shadow-xl
       rotate-[25deg]
     "
-    style={{
-      clipPath:
-        "polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%)",
-    }}
-  ></div>
+          style={{
+            clipPath:
+              "polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%)",
+          }}
+        ></div>
 
-
-  {/* Hình tròn */}
-  <div
-    className="
+        {/* Hình tròn */}
+        <div
+          className="
       absolute
       top-[18%]
       left-[18%]
@@ -127,12 +122,11 @@ function LoginPage() {
       bg-[#1468b8]
       shadow-lg
     "
-  ></div>
+        ></div>
 
-
-  {/* Hình khối góc phải trên */}
-  <div
-    className="
+        {/* Hình khối góc phải trên */}
+        <div
+          className="
       absolute
       top-[4%]
       right-[7%]
@@ -145,12 +139,11 @@ function LoginPage() {
       shadow-xl
       rotate-[25deg]
     "
-  ></div>
+        ></div>
 
-
-  {/* Hình khối bên phải */}
-  <div
-    className="
+        {/* Hình khối bên phải */}
+        <div
+          className="
       absolute
       bottom-[22%]
       right-[8%]
@@ -163,12 +156,11 @@ function LoginPage() {
       shadow-xl
       rotate-[25deg]
     "
-  ></div>
+        ></div>
 
-
-  {/* Hình khối góc trái dưới */}
-  <div
-    className="
+        {/* Hình khối góc trái dưới */}
+        <div
+          className="
       absolute
       bottom-[6%]
       left-[6%]
@@ -181,12 +173,11 @@ function LoginPage() {
       shadow-xl
       rotate-[25deg]
     "
-  ></div>
+        ></div>
 
-
-  {/* Hình khối nhỏ phía dưới */}
-  <div
-    className="
+        {/* Hình khối nhỏ phía dưới */}
+        <div
+          className="
       absolute
       bottom-[-2%]
       right-[25%]
@@ -199,17 +190,15 @@ function LoginPage() {
       shadow-xl
       rotate-[25deg]
     "
-  ></div>
+        ></div>
+      </div>
 
-</div>
-
-
-{/* ==============================
+      {/* ==============================
     FORM LOGIN
 ============================== */}
 
-<div
-  className="
+      <div
+        className="
     relative
     z-10
     w-full
@@ -220,14 +209,12 @@ function LoginPage() {
     px-10
     py-12
   "
->
-
+      >
         {/* 
             HEADER
       */}
 
         <div className="mb-8">
-
           <h1 className="text-3xl font-semibold text-gray-900 mb-2">
             Chào mừng trở lại
           </h1>
@@ -235,23 +222,16 @@ function LoginPage() {
           <p className="text-sm text-gray-500">
             Vui lòng đăng nhập vào tài khoản của bạn.
           </p>
-
         </div>
-
 
         {/* ==========================
             FORM
         ========================== */}
 
-        <form
-          onSubmit={handleSubmit}
-          noValidate
-        >
-
+        <form onSubmit={handleSubmit} noValidate>
           {/* EMAIL */}
 
           <div className="mb-5">
-
             <label
               htmlFor="email"
               className="block mb-2 text-sm font-medium text-gray-700"
@@ -260,7 +240,6 @@ function LoginPage() {
             </label>
 
             <div className="relative">
-
               <span
                 className="
                   absolute
@@ -280,7 +259,6 @@ function LoginPage() {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="Nhập Email của bạn"
-
                 className={`
                   w-full
                   h-11
@@ -300,24 +278,17 @@ function LoginPage() {
                   }
                 `}
               />
-
             </div>
 
             {errors.email && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.email}
-              </p>
+              <p className="mt-1 text-xs text-red-500">{errors.email}</p>
             )}
-
           </div>
-
 
           {/* PASSWORD */}
 
           <div className="mb-4">
-
             <div className="flex items-center justify-between mb-2">
-
               <label
                 htmlFor="password"
                 className="text-sm font-medium text-gray-700"
@@ -331,12 +302,9 @@ function LoginPage() {
               >
                 Quên mật khẩu?
               </button>
-
             </div>
 
-
             <div className="relative">
-
               <span
                 className="
                   absolute
@@ -349,19 +317,13 @@ function LoginPage() {
                 🔒
               </span>
 
-
               <input
                 id="password"
                 name="password"
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
+                type={showPassword ? "text" : "password"}
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="••••••••"
-
                 className={`
                   w-full
                   h-11
@@ -382,13 +344,9 @@ function LoginPage() {
                 `}
               />
 
-
               <button
                 type="button"
-                onClick={() =>
-                  setShowPassword((prev) => !prev)
-                }
-
+                onClick={() => setShowPassword((prev) => !prev)}
                 className="
                   absolute
                   right-4
@@ -401,30 +359,22 @@ function LoginPage() {
               >
                 {showPassword ? "Ẩn" : "Hiện"}
               </button>
-
             </div>
 
-
             {errors.password && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.password}
-              </p>
+              <p className="mt-1 text-xs text-red-500">{errors.password}</p>
             )}
-
           </div>
-
 
           {/* GHI NHỚ */}
 
           <div className="mb-6 flex items-center gap-2">
-
             <input
               id="remember"
               name="remember"
               type="checkbox"
               checked={formData.remember}
               onChange={handleChange}
-
               className="
                 h-4
                 w-4
@@ -443,15 +393,12 @@ function LoginPage() {
             >
               Ghi nhớ đăng nhập
             </label>
-
           </div>
-
 
           {/* ĐĂNG NHẬP */}
 
           <button
             type="submit"
-
             className="
               w-full
               h-11
@@ -468,12 +415,10 @@ function LoginPage() {
             Đăng nhập
           </button>
 
-
           {/* ĐĂNG KÝ */}
 
           <button
             type="button"
-
             className="
               w-full
               h-11
@@ -491,7 +436,6 @@ function LoginPage() {
             Đăng ký tài khoản mới
           </button>
 
-
           {/* DIVIDER */}
 
           <div
@@ -502,7 +446,6 @@ function LoginPage() {
               my-7
             "
           >
-
             <div className="h-px flex-1 bg-gray-200"></div>
 
             <span
@@ -516,17 +459,13 @@ function LoginPage() {
             </span>
 
             <div className="h-px flex-1 bg-gray-200"></div>
-
           </div>
-
 
           {/* GOOGLE + FACEBOOK */}
 
           <div className="grid grid-cols-2 gap-3">
-
             <button
               type="button"
-
               className="
                 h-10
                 rounded-full
@@ -539,17 +478,12 @@ function LoginPage() {
                 transition
               "
             >
-              <span className="font-bold text-blue-500 mr-2">
-                G
-              </span>
-
+              <span className="font-bold text-blue-500 mr-2">G</span>
               Google
             </button>
 
-
             <button
               type="button"
-
               className="
                 h-10
                 rounded-full
@@ -562,19 +496,12 @@ function LoginPage() {
                 transition
               "
             >
-              <span className="font-bold text-blue-500 mr-2">
-                f
-              </span>
-
+              <span className="font-bold text-blue-500 mr-2">f</span>
               Facebook
             </button>
-
           </div>
-
         </form>
-
       </div>
-
     </div>
   );
 }
