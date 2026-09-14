@@ -5,13 +5,6 @@ import { jobApi } from "../api/jobApi";
 import { ApiError } from "../lib/apiClient";
 import SearchBar from "../components/job/SearchBar";
 import CategoryCard from "../components/job/CategoryCard";
-import JobCard from "../components/job/JobCard";
-
-const QUICK_SEARCHES = ["IT", "Marketing", "Thiết kế", "Tài chính", "Kinh doanh", "Remote", "Thực tập"];
-
-/**
- * Trang chủ phía ứng viên. Header/Footer do MainLayout render (xem App.jsx) -
- * trang này chỉ lo phần nội dung, không tự vẽ lại header/footer nữa.
  */
 function HomePage() {
   const navigate = useNavigate();

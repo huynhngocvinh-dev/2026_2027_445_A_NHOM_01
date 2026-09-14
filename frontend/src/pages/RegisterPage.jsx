@@ -49,11 +49,11 @@ function RegisterPage() {
       newErrors.email = "Email không đúng định dạng";
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Vui lòng nhập số điện thoại";
-    } else if (!/^(0|\+84)[0-9]{9,10}$/.test(formData.phone)) {
-      newErrors.phone = "Số điện thoại không hợp lệ";
-    }
+    // if (!formData.phone.trim()) {
+    //   newErrors.phone = "Vui lòng nhập số điện thoại";
+    // } else if (!/^(0|\+84)[0-9]{9,10}$/.test(formData.phone)) {
+    //   newErrors.phone = "Số điện thoại không hợp lệ";
+    // }
 
     if (!formData.password) {
       newErrors.password = "Vui lòng nhập mật khẩu";
@@ -231,7 +231,7 @@ function RegisterPage() {
                 placeholder="email@example.com"
                 error={errors.email}
               />
-              <FormField
+              {/* <FormField
                 size="sm"
                 label="Số điện thoại"
                 type="tel"
@@ -240,7 +240,7 @@ function RegisterPage() {
                 onChange={handleChange}
                 placeholder="0901234567"
                 error={errors.phone}
-              />
+              /> */}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
