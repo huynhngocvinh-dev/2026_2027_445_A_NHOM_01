@@ -26,7 +26,7 @@ public class SecurityConfig {
         // Không dùng session ở backend nữa vì đã chuyển sang xác thực bằng JWT (stateless)
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers("/api/auth/**", "/error").permitAll() // Mở thêm đường dẫn /error
+            .requestMatchers("/api/auth/**", "/error").permitAll() 
             .anyRequest().authenticated()
         )
         // Chèn filter đọc JWT trước filter xác thực mặc định của Spring Security
