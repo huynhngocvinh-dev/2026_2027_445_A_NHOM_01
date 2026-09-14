@@ -12,7 +12,7 @@ import {
   FiLogOut,
 } from "react-icons/fi";
 import { useAuth } from "../hooks/useAuth";
-
+// ========================================ADMIN=========================================
 const MENU_ITEMS = [
   { name: "Dashboard", path: "/admin", icon: FiHome },
   { name: "Quản lý người dùng", path: "/admin/users", icon: FiUsers },
@@ -88,7 +88,9 @@ function AdminLayout() {
                 {(user?.fullName || "AD").slice(0, 2).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{user?.fullName || "Admin System"}</p>
+                <p className="truncate text-sm font-semibold">
+                  {user?.fullName || "Admin System"}
+                </p>
                 <p className="truncate text-xs text-slate-400">{user?.email}</p>
               </div>
             </div>

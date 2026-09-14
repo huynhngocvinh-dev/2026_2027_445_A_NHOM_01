@@ -12,10 +12,16 @@ import RegisterPage from "./pages/RegisterPage";
 import OtpPage from "./pages/OtpPage";
 
 import JobListPage from "./pages/Jobs/JobListPage";
-import CreateJobPage from "./pages/Jobs/CreateJobPage";
 import EditJobPage from "./pages/Jobs/EditJobPage";
 import SavedJobsPage from "./pages/Jobs/SavedJobsPage";
 import ProfilePage from "./pages/User/ProfilePage";
+
+// ================= HR =================
+import HrLayout from "./pages/hr/HrLayout";
+import HrCreateJobPage from "./pages/hr/CreateJobPage";
+import CompanyInfoPage from "./pages/hr/CompanyInfoPage";
+import HrJobsPage from "./pages/hr/HrJobsPage";
+import CandidatesPage from "./pages/hr/CandidatesPage";
 
 // ================= ADMIN =================
 import DashboardPage from "./pages/Admin/DashboardPage";
@@ -57,8 +63,11 @@ function App() {
           <Route path="/account/saved-jobs" element={<SavedJobsPage />} />
 
           {/* Đăng/sửa tin chỉ dành cho nhà tuyển dụng hoặc admin */}
-          <Route element={<ProtectedRoute allowedRoles={[ROLES.EMPLOYER, ROLES.ADMIN]} />}>
-            <Route path="/jobs/create" element={<CreateJobPage />} />
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.EMPLOYER, ROLES.ADMIN]} />
+            }
+          >
             <Route path="/jobs/:id/edit" element={<EditJobPage />} />
           </Route>
         </Route>
@@ -73,8 +82,28 @@ function App() {
           <Route path="/admin/crawl" element={<CrawlManagementPage />} />
           <Route path="/admin/sources" element={<SourceManagementPage />} />
           <Route path="/admin/duplicates" element={<DuplicatesPage />} />
-          <Route path="/admin/applications" element={<ApplicationManagementPage />} />
+          <Route
+            path="/admin/applications"
+            element={<ApplicationManagementPage />}
+          />
           <Route path="/admin/statistics" element={<StatisticsPage />} />
+        </Route>
+      </Route>
+
+      {/* ============ HR (chỉ role HR) ============ */}
+      <Route element={<ProtectedRoute allowedRoles={[ROLES.HR]} />}>
+        <Route element={<HrLayout />}>
+          {/* 1. Thông tin công ty */}
+          <Route path="/hr/company" element={<CompanyInfoPage />} />
+
+          {/* 2. Đăng tin tuyển dụng */}
+          <Route path="/hr/jobs/create" element={<HrCreateJobPage />} />
+
+          {/* 3. Tin tuyển dụng */}
+          <Route path="/hr/jobs" element={<HrJobsPage />} />
+
+          {/* 4. Ứng viên */}
+          <Route path="/hr/candidates" element={<CandidatesPage />} />
         </Route>
       </Route>
 
