@@ -5,7 +5,7 @@ import { jobApi } from "../api/jobApi";
 import { ApiError } from "../lib/apiClient";
 import SearchBar from "../components/job/SearchBar";
 import CategoryCard from "../components/job/CategoryCard";
- */
+ 
 function HomePage() {
   const navigate = useNavigate();
 

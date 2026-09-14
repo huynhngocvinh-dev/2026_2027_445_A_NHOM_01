@@ -15,6 +15,7 @@ import JobListPage from "./pages/Jobs/JobListPage";
 import EditJobPage from "./pages/Jobs/EditJobPage";
 import SavedJobsPage from "./pages/Jobs/SavedJobsPage";
 import ProfilePage from "./pages/User/ProfilePage";
+import ApplicationHistoryPage from "./pages/Jobs/applyPage";
 
 // ================= HR =================
 import HrLayout from "./pages/hr/HrLayout";
@@ -82,10 +83,14 @@ function App() {
           <Route path="/admin/crawl" element={<CrawlManagementPage />} />
           <Route path="/admin/sources" element={<SourceManagementPage />} />
           <Route path="/admin/duplicates" element={<DuplicatesPage />} />
+   
           <Route
             path="/admin/applications"
             element={<ApplicationManagementPage />}
-          />
+          />               <Route
+          path="/applications"
+          element={<ApplicationHistoryPage />}
+        />
           <Route path="/admin/statistics" element={<StatisticsPage />} />
         </Route>
       </Route>
