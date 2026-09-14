@@ -17,6 +17,9 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable()) 
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/api/auth/**", "/error").permitAll() 
+            .requestMatchers("/api/jobs/**").permitAll()
+            .requestMatchers("/api/saved-jobs/**").permitAll()
+            .requestMatchers("/api/auth/**", "/api/jobs/**", "/api/search/**").permitAll()
             .anyRequest().authenticated()
         );
         return http.build();

@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -27,60 +28,88 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    // VÙNG ĐỆM RAM: Lưu tạm người dùng chưa xác thực
+    private final Map<String, User> pendingUsers = new ConcurrentHashMap<>();
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         String password = request.get("password");
         String fullName = request.get("fullName");
         String phoneNumber = request.get("phoneNumber");
-        
-        // --- ĐOẠN ĐÃ SỬA: Xử lý và chuẩn hóa phân quyền (Role) ---
         String rawRole = request.get("role");
-        String role = "JOB_SEEKER"; // Đặt mặc định là Người tìm việc
 
-        if (rawRole != null && !rawRole.trim().isEmpty()) {
-            if (rawRole.equalsIgnoreCase("employer")) {
-                role = "EMPLOYER";
-            } else if (rawRole.equalsIgnoreCase("job_seeker")) {
-                role = "JOB_SEEKER";
-            } else {
-                return ResponseEntity.badRequest().body("Lỗi: Quyền (role) không hợp lệ! Chỉ chấp nhận 'job_seeker' hoặc 'employer'.");
-            }
+        // 1. CHỐT CHẶN DỮ LIỆU RỖNG: Không cho phép thiếu bất kỳ trường nào
+        if (fullName == null || fullName.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Lỗi: Họ và tên không được để trống!");
         }
-        // ---------------------------------------------------------
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Lỗi: Email không được để trống!");
+        }
+        if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Lỗi: Số điện thoại không được để trống!");
+        }
+        if (password == null || password.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Lỗi: Mật khẩu không được để trống!");
+        }
+        if (rawRole == null || rawRole.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Lỗi: Vai trò tài khoản không được để trống!");
+        }
+        String emailRegex = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$";
+        if (email == null || !email.matches(emailRegex)) {
+        return ResponseEntity.badRequest().body("Lỗi: Định dạng email không hợp lệ!");
+        }
 
-        // 1. Kiểm tra độ mạnh của mật khẩu (Regex)
+        // 2. Chuẩn hóa và kiểm tra Quyền (Role)
+        String role = "JOB_SEEKER";
+        if (rawRole.equalsIgnoreCase("employer")) {
+            role = "EMPLOYER";
+        } else if (rawRole.equalsIgnoreCase("job_seeker")) {
+            role = "JOB_SEEKER";
+        } else {
+            return ResponseEntity.badRequest().body("Lỗi: Quyền (role) không hợp lệ!");
+        }
+
+        // 3. Kiểm tra định dạng mật khẩu bằng Regex
         String passwordRegex = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!]).{8,}$";
-        if (password == null || !password.matches(passwordRegex)) {
-            return ResponseEntity.badRequest().body("Mật khẩu phải có ít nhất 8 ký tự, bao gồm ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt (@#$%^&+=!).");
+        if (!password.matches(passwordRegex)) {
+            return ResponseEntity.badRequest().body("Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
         }
 
-        // 2. Kiểm tra email đã tồn tại trong hệ thống chưa
-        Optional<User> existingUser = userRepository.findByEmail(email);
-        if (existingUser.isPresent()) {
-            return ResponseEntity.badRequest().body("Email đã được sử dụng!");
+        // 4. Kiểm tra trong Database thật
+        if (userRepository.findByEmail(email).isPresent()) {
+            return ResponseEntity.badRequest().body("Lỗi: Email này đã được sử dụng!");
         }
 
-        // 3. Thuật toán tạo mã OTP 6 chữ số ngẫu nhiên
+        // 5. Tạo mã OTP
         String otp = String.format("%06d", new Random().nextInt(999999));
 
-        // 4. Đóng gói dữ liệu và lưu vào Database 
-        User newUser = User.builder()
+        // 6. Đóng gói User (Lưu ý: Biến passwordEncoder phải được khai báo @Autowired trong Controller)
+        User pendingUser = User.builder()
                 .email(email)
-                .password(passwordEncoder.encode(password)) // Mật khẩu được băm bảo mật
+                .password(passwordEncoder.encode(password)) 
                 .fullName(fullName)
                 .phoneNumber(phoneNumber)
-                .role(role) // Đã được chuẩn hóa thành IN HOA
+                .role(role) 
                 .isVerified(false)
                 .otpCode(otp)
-                .otpExpirationTime(LocalDateTime.now().plusMinutes(1)) 
+                .otpExpirationTime(LocalDateTime.now().plusHours(1)) 
                 .authProvider("LOCAL") 
                 .build();
 
-        userRepository.save(newUser);
+       // 7. Lưu tạm vào bộ nhớ RAM
+        pendingUsers.put(email, pendingUser);
 
-        // 5. Bắn email OTP cho người dùng
-        emailService.sendOtpEmail(email, otp);
+        // 8. Bắn email OTP (Đã được bọc try-catch để chặn đứng nếu gửi mail lỗi)
+        try {
+            emailService.sendOtpEmail(email, otp);
+        } catch (Exception e) {
+            // Xóa ngay user khỏi bộ nhớ tạm vì gửi mail không thành công
+            pendingUsers.remove(email);
+
+            // Báo lỗi ngược lại cho người dùng
+            return ResponseEntity.badRequest().body("Lỗi: Không thể gửi mã OTP tới email này. Vui lòng kiểm tra lại địa chỉ email!");
+        }
 
         return ResponseEntity.ok("Đăng ký thành công! Vui lòng kiểm tra email để nhận mã OTP.");
     }
@@ -90,31 +119,54 @@ public class AuthController {
         String email = request.get("email");
         String otpCode = request.get("otpCode");
 
-        Optional<User> userOptional = userRepository.findByEmail(email);
-        if (userOptional.isEmpty()) {
-            return ResponseEntity.badRequest().body("Không tìm thấy tài khoản!");
-        }
-
-        User user = userOptional.get();
-
-        if (user.isVerified()) {
-            return ResponseEntity.badRequest().body("Tài khoản này đã được xác thực từ trước!");
-        }
+        // 1. Tìm trong vùng đệm RAM thay vì Database
+        User pendingUser = pendingUsers.get(email);
         
-        if (!user.getOtpCode().equals(otpCode)) {
+        if (pendingUser == null) {
+            return ResponseEntity.badRequest().body("Không tìm thấy yêu cầu đăng ký hoặc phiên đã hết hạn!");
+        }
+
+        if (!pendingUser.getOtpCode().equals(otpCode)) {
             return ResponseEntity.badRequest().body("Mã OTP không chính xác!");
         }
         
-        if (user.getOtpExpirationTime().isBefore(LocalDateTime.now())) {
-            return ResponseEntity.badRequest().body("Mã OTP đã hết hạn!");
+        if (pendingUser.getOtpExpirationTime().isBefore(LocalDateTime.now())) {
+            pendingUsers.remove(email); 
+            return ResponseEntity.badRequest().body("Mã OTP đã hết hạn! Vui lòng đăng ký lại.");
         }
 
-        user.setVerified(true);
-        user.setOtpCode(null); 
-        user.setOtpExpirationTime(null);
-        userRepository.save(user);
+        // 2. OTP Hợp lệ -> Chính thức lưu vào CSDL
+        pendingUser.setVerified(true);
+        pendingUser.setOtpCode(null); 
+        pendingUser.setOtpExpirationTime(null);
+        userRepository.save(pendingUser);
+
+        // 3. Xóa dữ liệu tạm
+        pendingUsers.remove(email);
 
         return ResponseEntity.ok("Xác thực tài khoản thành công!");
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<?> resendOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+
+        if (userRepository.findByEmail(email).isPresent()) {
+            return ResponseEntity.badRequest().body("Tài khoản này đã được xác thực, không cần gửi lại mã!");
+        }
+
+        User pendingUser = pendingUsers.get(email);
+        if (pendingUser == null) {
+            return ResponseEntity.badRequest().body("Không tìm thấy yêu cầu đăng ký, vui lòng đăng ký lại!");
+        }
+
+        String newOtp = String.format("%06d", new Random().nextInt(999999));
+        pendingUser.setOtpCode(newOtp);
+        pendingUser.setOtpExpirationTime(LocalDateTime.now().plusMinutes(1));        
+        pendingUsers.put(email, pendingUser); 
+        emailService.sendOtpEmail(email, newOtp);
+
+        return ResponseEntity.ok("Đã gửi lại mã OTP mới. Mã có hiệu lực trong 1 phút.");
     }
 
     @PostMapping("/social-login")
@@ -124,7 +176,6 @@ public class AuthController {
         
         String rawProvider = request.get("provider");
         String provider = (rawProvider != null) ? rawProvider.toUpperCase() : "UNKNOWN"; 
-        
         String providerId = request.get("providerId"); 
         
         String rawRole = request.get("role");
@@ -136,14 +187,14 @@ public class AuthController {
             User user = existingUser.get();
             user.setAuthProvider(provider);
             user.setProviderId(providerId);
-            userRepository.save(user);
+            userRepository.save(user); 
             return ResponseEntity.ok("Đăng nhập " + provider + " thành công!");
         } else {
             User newUser = User.builder()
                     .email(email)
                     .fullName(fullName)
                     .password("") 
-                    .role(role) // Đã được chuẩn hóa
+                    .role(role) 
                     .isVerified(true) 
                     .authProvider(provider)
                     .providerId(providerId)
@@ -153,49 +204,32 @@ public class AuthController {
             return ResponseEntity.ok("Đăng ký bằng " + provider + " thành công!");
         }
     }
-    @PostMapping("/resend-otp")
-    public ResponseEntity<?> resendOtp(@RequestBody Map<String, String> request) {
-        String email = request.get("email");
 
-        Optional<User> userOptional = userRepository.findByEmail(email);
-        if (userOptional.isEmpty()) {
-            return ResponseEntity.badRequest().body("Không tìm thấy tài khoản!");
-        }
-
-        User user = userOptional.get();
-
-        // Nếu đã xác thực rồi thì không cho gửi OTP nữa
-        if (user.isVerified()) {
-            return ResponseEntity.badRequest().body("Tài khoản này đã được xác thực, không cần gửi lại mã!");
-        }
-
-        String newOtp = String.format("%06d", new Random().nextInt(999999));
-        user.setOtpCode(newOtp);
-        user.setOtpExpirationTime(LocalDateTime.now().plusMinutes(1)); 
-        
-        userRepository.save(user);
-
-        // Bắn email OTP mới
-        emailService.sendOtpEmail(email, newOtp);
-
-        return ResponseEntity.ok("Đã gửi lại mã OTP mới. Mã có hiệu lực trong 1 phút.");
-    }
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         String password = request.get("password");
+        
         Optional<User> userOptional = userRepository.findByEmail(email);
         if (userOptional.isEmpty()) {
             return ResponseEntity.badRequest().body("Lỗi: Sai email hoặc mật khẩu!");
         }
 
         User user = userOptional.get();
-        if (!user.isVerified()) {
-            return ResponseEntity.badRequest().body("Lỗi: Tài khoản chưa được xác thực OTP. Vui lòng kiểm tra email hoặc đăng ký lại để nhận mã!");
-        }
         if (!passwordEncoder.matches(password, user.getPassword())) {
             return ResponseEntity.badRequest().body("Lỗi: Sai email hoặc mật khẩu!");
         }
+        
         return ResponseEntity.ok("Đăng nhập thành công! Chào mừng " + user.getFullName());
+    }
+    // Hàm tự động quét và xóa rác trên RAM mỗi 15 phút (900,000 ms)
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 900000)
+    public void cleanupExpiredPendingUsers() {
+        LocalDateTime now = LocalDateTime.now();
+        
+        // Duyệt qua biến RAM, nếu ai hết hạn OTP thì tự động gỡ bỏ khỏi bộ nhớ
+        pendingUsers.entrySet().removeIf(entry -> 
+            entry.getValue().getOtpExpirationTime().isBefore(now)
+        );        
     }
 }
