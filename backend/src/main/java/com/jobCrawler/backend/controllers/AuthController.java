@@ -136,7 +136,7 @@ public class AuthController {
         }
 
         // 2. OTP Hợp lệ -> Chính thức lưu vào CSDL
-        pendingUser.setVerified(true);
+        pendingUser.setIsVerified(true);
         pendingUser.setOtpCode(null); 
         pendingUser.setOtpExpirationTime(null);
         userRepository.save(pendingUser);

@@ -29,7 +29,7 @@ public class User {
 
     // --- Các trường OTP ---
     @Column(name = "is_verified")
-    private boolean isVerified = false;
+    private Boolean isVerified = false;
     
     @Column(name = "otp_code")
     private String otpCode;

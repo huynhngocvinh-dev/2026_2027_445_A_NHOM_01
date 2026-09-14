@@ -16,4 +16,5 @@ public interface JobRepository extends JpaRepository<Job, Long> {
             @Param("keyword") String keyword, 
             @Param("location") String location
     );
+    List<Job> findAllByOrderByCreatedAtDesc();
 }

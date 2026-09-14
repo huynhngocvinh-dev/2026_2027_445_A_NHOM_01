@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @RestController
@@ -121,5 +122,15 @@ public class JobController {
         jobRepository.save(crawledJob);
         
         return ResponseEntity.ok("Tool cào dữ liệu đã import bài thành công!");
+    }
+
+    // ==========================================
+    // LUỒNG 3: LẤY DANH SÁCH VIỆC LÀM CHO TRANG CHỦ
+    // ==========================================
+    @GetMapping("/home")
+    public ResponseEntity<?> getHomepageJobs() {
+        // Hàm này tự động gọi xuống SQL lấy dữ liệu không cần input manual
+        List<Job> jobs = jobRepository.findAllByOrderByCreatedAtDesc();
+        return ResponseEntity.ok(jobs);
     }
 }
