@@ -25,7 +25,6 @@ public class User {
     private String phoneNumber;
     private String role;
 
-    // Đổi sang Boolean (chữ B hoa) để Lombok tạo setIsVerified() và isVerified()
     @Builder.Default
     private Boolean isVerified = false;
 

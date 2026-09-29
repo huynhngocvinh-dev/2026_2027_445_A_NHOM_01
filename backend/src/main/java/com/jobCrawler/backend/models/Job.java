@@ -21,6 +21,10 @@ public class Job {
     @JoinColumn(name = "employer_id", nullable = true)
     private User employer;
 
+    @ManyToOne
+    @JoinColumn(name = "company_id", nullable = true)
+    private Company company;
+
     @Column(name = "job_title", nullable = false)
     private String jobTitle;
 

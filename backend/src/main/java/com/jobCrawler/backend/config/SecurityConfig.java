@@ -42,8 +42,12 @@ public class SecurityConfig {
                 // 2. Cho phép Bot Node.js và Trang Duyệt Tin / Crawl gọi API không cần Token
                 .requestMatchers("/api/admin/approval/**", "/api/admin/crawl/**").permitAll()
                 
-                // 3. Cho phép xem danh sách việc làm công khai
+                // 3. Cho phép xem danh sách việc làm công khai & API công ty
                 .requestMatchers(HttpMethod.GET, "/api/jobs/**", "/api/search/**").permitAll()
+                
+                // ===== BỔ SUNG: Cho phép HR xem và cập nhật thông tin công ty =====
+                // (Nếu đã dùng JWT Auth hoàn chỉnh, đổi .permitAll() thành .authenticated() hoặc .hasRole("HR"))
+                .requestMatchers("/api/v1/company/**").permitAll() 
                 
                 // 4. Các quyền yêu cầu đăng nhập / role
                 .requestMatchers("/api/jobs/hr/**", "/api/jobs/crawler/**").permitAll()
@@ -62,7 +66,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Bổ sung các port phổ biến của Vite React (5173, 5174, 5175)
+        // Bổ sung các port phổ biến của Vite React (5173, 5174, 5175) & NextJS/React (3000)
         configuration.setAllowedOrigins(List.of(
             "http://localhost:5173",
             "http://localhost:5174",
@@ -71,7 +75,11 @@ public class SecurityConfig {
         ));
         
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
+        
+        // ===== BỔ SUNG: Cho phép truyền tất cả Headers bao gồm X-HR-User-Id =====
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-HR-User-Id", "X-Requested-With", "Accept"));
+        configuration.setExposedHeaders(List.of("Authorization", "X-HR-User-Id"));
+        
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
