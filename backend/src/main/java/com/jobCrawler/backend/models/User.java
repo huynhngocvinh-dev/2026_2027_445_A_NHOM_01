@@ -6,11 +6,13 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -19,28 +21,22 @@ public class User {
     private String email;
 
     private String password;
-    
     private String fullName;
-    @Column(name = "phone_number")
     private String phoneNumber;
-
-    @Column(name = "role")
     private String role;
 
-    // --- Các trường OTP ---
-    @Column(name = "is_verified")
-    private boolean isVerified = false;
-    
-    @Column(name = "otp_code")
+    // Đổi sang Boolean (chữ B hoa) để Lombok tạo setIsVerified() và isVerified()
+    @Builder.Default
+    private Boolean isVerified = false;
+
     private String otpCode;
-    
-    @Column(name = "otp_expiration_time")
     private LocalDateTime otpExpirationTime;
 
-    // --- Các trường Social Login ---
-    @Column(name = "auth_provider")
     private String authProvider;
-
-    @Column(name = "provider_id")
     private String providerId;
+
+    // Getter chuẩn cho Lombok
+    public Boolean isVerified() {
+        return isVerified != null && isVerified;
+    }
 }

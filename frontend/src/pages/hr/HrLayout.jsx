@@ -24,7 +24,7 @@ function HrLayout() {
     },
     {
       name: "Đăng tin tuyển dụng",
-      path: "/hr/create-job",
+      path: "/hr/create",
       icon: "+",
     },
     {

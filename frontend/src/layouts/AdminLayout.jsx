@@ -10,14 +10,17 @@ import {
   FiBarChart2,
   FiBell,
   FiLogOut,
+  FiCpu, // Icon dùng cho mục Duyệt tin AI
 } from "react-icons/fi";
 import { useAuth } from "../hooks/useAuth";
+
 // ========================================ADMIN=========================================
 const MENU_ITEMS = [
   { name: "Dashboard", path: "/admin", icon: FiHome },
   { name: "Quản lý người dùng", path: "/admin/users", icon: FiUsers },
   { name: "Tin tuyển dụng", path: "/admin/jobs", icon: FiBriefcase },
-  { name: "Dữ liệu thu thập", path: "/admin/crawl", icon: FiDatabase },
+  { name: "Quản lý Crawler", path: "/admin/crawl", icon: FiDatabase },
+  { name: "Duyệt tin AI", path: "/admin/ai-approval", icon: FiCpu }, // Bổ sung đường dẫn Duyệt tin AI
   { name: "Nguồn tuyển dụng", path: "/admin/sources", icon: FiGlobe },
   { name: "Tin trùng lặp", path: "/admin/duplicates", icon: FiCopy },
   { name: "Ứng tuyển", path: "/admin/applications", icon: FiFileText },
@@ -25,9 +28,7 @@ const MENU_ITEMS = [
 ];
 
 /**
- * Khung riêng cho khu vực quản trị. Đặt sau
- * <ProtectedRoute allowedRoles={["ADMIN"]} /> trong router nên không tự
- * kiểm tra quyền ở đây.
+ * Khung riêng cho khu vực quản trị.
  */
 function AdminLayout() {
   const location = useLocation();
@@ -56,7 +57,7 @@ function AdminLayout() {
           </div>
 
           {/* ================= MENU ================= */}
-          <nav className="flex-1 px-3 py-4">
+          <nav className="flex-1 px-3 py-4 space-y-1">
             {MENU_ITEMS.map((item) => {
               const active =
                 item.path === "/admin"
@@ -68,7 +69,7 @@ function AdminLayout() {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`mb-1 flex h-12 items-center gap-4 rounded-2xl px-4 text-base transition ${
+                  className={`flex h-11 items-center gap-3 rounded-xl px-4 text-sm transition ${
                     active
                       ? "bg-blue-600 font-semibold text-white"
                       : "text-slate-300 hover:bg-slate-800 hover:text-white"
@@ -110,7 +111,10 @@ function AdminLayout() {
         <main className="min-w-0 flex-1">
           {/* HEADER */}
           <header className="flex h-16 items-center justify-end border-b border-slate-200 bg-white px-8">
-            <FiBell size={20} className="text-slate-500" />
+            <FiBell
+              size={20}
+              className="text-slate-500 cursor-pointer hover:text-slate-700"
+            />
           </header>
 
           {/* TRANG CON HIỂN THỊ Ở ĐÂY */}

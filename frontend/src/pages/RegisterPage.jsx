@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FiBriefcase, FiEye, FiEyeOff, FiUsers, FiUser } from "react-icons/fi";
+import {
+  FiBriefcase,
+  FiEye,
+  FiEyeOff,
+  FiUsers,
+  FiUser,
+  FiMail,
+  FiLock,
+} from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { FaFacebook } from "react-icons/fa";
 import { authApi } from "../api/authApi";
@@ -9,7 +17,6 @@ import { ApiError } from "../lib/apiClient";
 import { ROLES } from "../constants/roles";
 import FormField from "../components/form/FormField";
 
-// UI dùng "job_seeker"/"employer" cho dễ đọc, backend cần đúng giá trị role thật
 const ROLE_MAP = { job_seeker: ROLES.CANDIDATE, employer: ROLES.EMPLOYER };
 
 function RegisterPage() {
@@ -18,7 +25,6 @@ function RegisterPage() {
     role: "job_seeker",
     fullName: "",
     email: "",
-    phone: "",
     password: "",
     confirmPassword: "",
     agree: false,
@@ -27,10 +33,14 @@ function RegisterPage() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
@@ -49,18 +59,15 @@ function RegisterPage() {
       newErrors.email = "Email không đúng định dạng";
     }
 
-    // if (!formData.phone.trim()) {
-    //   newErrors.phone = "Vui lòng nhập số điện thoại";
-    // } else if (!/^(0|\+84)[0-9]{9,10}$/.test(formData.phone)) {
-    //   newErrors.phone = "Số điện thoại không hợp lệ";
-    // }
-
     if (!formData.password) {
       newErrors.password = "Vui lòng nhập mật khẩu";
     } else if (
-      !/^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!]).{8,}$/.test(formData.password)
+      !/^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!]).{8,}$/.test(
+        formData.password
+      )
     ) {
-      newErrors.password = "Mật khẩu cần ít nhất 8 ký tự, gồm hoa, thường, số và ký tự đặc biệt";
+      newErrors.password =
+        "Mật khẩu gồm ít nhất 8 ký tự (Chữ (hoa, thường), số, ký tự đặc biệt(@#$%^&+=!)";
     }
 
     if (!formData.confirmPassword) {
@@ -85,7 +92,6 @@ function RegisterPage() {
       role: ROLE_MAP[formData.role] ?? ROLES.CANDIDATE,
       fullName: formData.fullName.trim(),
       email: formData.email.trim(),
-      phoneNumber: formData.phone.trim(),
       password: formData.password,
     };
 
@@ -93,16 +99,19 @@ function RegisterPage() {
       setLoading(true);
       await authApi.register(payload);
 
-      toast.success("Đăng ký thành công! Vui lòng nhập mã OTP đã gửi tới email của bạn.");
-      // Chuyển sang trang xác thực OTP riêng (OtpPage) - tránh trùng lặp
-      // UI nhập OTP thêm lần nữa ngay trong trang đăng ký.
+      toast.success(
+        "Đăng ký thành công! Vui lòng nhập mã OTP đã gửi tới email."
+      );
       navigate("/verify-otp", { state: { email: formData.email.trim() } });
     } catch (error) {
       if (error instanceof ApiError && error.fieldErrors) {
-        const { phoneNumber, ...rest } = error.fieldErrors;
-        setErrors((prev) => ({ ...prev, ...rest, ...(phoneNumber ? { phone: phoneNumber } : {}) }));
+        setErrors((prev) => ({ ...prev, ...error.fieldErrors }));
       }
-      toast.error(error instanceof ApiError ? error.message : "Không thể kết nối đến server");
+      toast.error(
+        error instanceof ApiError
+          ? error.message
+          : "Không thể kết nối đến server"
+      );
     } finally {
       setLoading(false);
     }
@@ -121,7 +130,6 @@ function RegisterPage() {
         <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-indigo-500/20 blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col justify-between w-full p-12 lg:p-16 text-white">
-          {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur flex items-center justify-center border border-white/20">
               <FiBriefcase className="w-5 h-5 text-white" />
@@ -129,19 +137,17 @@ function RegisterPage() {
             <span className="text-2xl font-bold tracking-tight">JobFinder</span>
           </div>
 
-          {/* Tiêu đề & Nội dung */}
           <div className="max-w-md my-auto py-10">
             <h2 className="text-3xl lg:text-4xl font-extrabold leading-tight tracking-tight text-white">
               Khám phá cơ hội <br />
               Nâng tầm sự nghiệp.
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-blue-100/80">
-              Nền tảng tuyển dụng thông minh kết nối nhân tài với những doanh nghiệp hàng đầu.
-              Đăng ký ngay để bắt đầu hành trình mới.
+              Nền tảng tuyển dụng thông minh kết nối nhân tài với những doanh
+              nghiệp hàng đầu. Đăng ký ngay để bắt đầu hành trình mới.
             </p>
           </div>
 
-          {/* Social Proof */}
           <div className="flex items-center gap-4">
             <div className="flex -space-x-2">
               <img
@@ -161,7 +167,9 @@ function RegisterPage() {
               />
             </div>
             <span className="text-xs font-medium text-blue-100/90">
-              Tham gia cùng <strong className="text-white font-semibold">+10,000</strong> chuyên gia
+              Tham gia cùng{" "}
+              <strong className="text-white font-semibold">+10,000</strong>{" "}
+              chuyên gia
             </span>
           </div>
         </div>
@@ -171,8 +179,12 @@ function RegisterPage() {
       <div className="w-full md:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-white overflow-y-auto">
         <div className="w-full max-w-md">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Tạo tài khoản</h2>
-            <p className="mt-1 text-sm text-gray-500">Điền thông tin bên dưới để tham gia JobFinder.</p>
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Tạo tài khoản
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Điền thông tin bên dưới để tham gia JobFinder.
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -184,7 +196,9 @@ function RegisterPage() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, role: "job_seeker" }))}
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, role: "job_seeker" }))
+                  }
                   className={`h-11 px-3 rounded-xl border text-sm font-medium flex items-center justify-center gap-2 transition-all ${
                     formData.role === "job_seeker"
                       ? "border-blue-600 bg-blue-50/60 text-blue-700 ring-2 ring-blue-600/20"
@@ -197,7 +211,9 @@ function RegisterPage() {
 
                 <button
                   type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, role: "employer" }))}
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, role: "employer" }))
+                  }
                   className={`h-11 px-3 rounded-xl border text-sm font-medium flex items-center justify-center gap-2 transition-all ${
                     formData.role === "employer"
                       ? "border-blue-600 bg-blue-50/60 text-blue-700 ring-2 ring-blue-600/20"
@@ -210,6 +226,7 @@ function RegisterPage() {
               </div>
             </div>
 
+            {/* HỌ VÀ TÊN */}
             <FormField
               size="sm"
               label="Họ và tên"
@@ -218,62 +235,69 @@ function RegisterPage() {
               onChange={handleChange}
               placeholder="Nguyễn Văn A"
               error={errors.fullName}
+              icon={<FiUser className="text-gray-400" size={16} />}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormField
-                size="sm"
-                label="Email"
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="email@example.com"
-                error={errors.email}
-              />
-              {/* <FormField
-                size="sm"
-                label="Số điện thoại"
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="0901234567"
-                error={errors.phone}
-              /> */}
-            </div>
+            {/* EMAIL */}
+            <FormField
+              size="sm"
+              label="Email"
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="email@example.com"
+              error={errors.email}
+              icon={<FiMail className="text-gray-400" size={16} />}
+            />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormField
-                size="sm"
-                label="Mật khẩu"
-                type={showPassword ? "text" : "password"}
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="••••••••"
-                error={errors.password}
-                rightElement={
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
-                  </button>
-                }
-              />
-              <FormField
-                size="sm"
-                label="Xác nhận mật khẩu"
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="••••••••"
-                error={errors.confirmPassword}
-              />
-            </div>
+            {/* MẬT KHẨU */}
+            <FormField
+              size="sm"
+              label="Mật khẩu"
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="••••••••"
+              error={errors.password}
+              icon={<FiLock className="text-gray-400" size={16} />}
+              rightElement={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                >
+                  {showPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                </button>
+              }
+            />
+
+            {/* XÁC NHẬN MẬT KHẨU */}
+            <FormField
+              size="sm"
+              label="Xác nhận mật khẩu"
+              type={showConfirmPassword ? "text" : "password"}
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              placeholder="••••••••"
+              error={errors.confirmPassword}
+              icon={<FiLock className="text-gray-400" size={16} />}
+              rightElement={
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                >
+                  {showConfirmPassword ? (
+                    <FiEyeOff size={16} />
+                  ) : (
+                    <FiEye size={16} />
+                  )}
+                </button>
+              }
+            />
 
             {/* TERMS CHECKBOX */}
             <div className="pt-1">
@@ -287,16 +311,26 @@ function RegisterPage() {
                 />
                 <span className="text-xs text-gray-600 leading-normal">
                   Tôi đồng ý với{" "}
-                  <button type="button" className="text-blue-600 font-medium hover:underline">
+                  <button
+                    type="button"
+                    className="text-blue-600 font-medium hover:underline"
+                  >
                     điều khoản sử dụng
                   </button>{" "}
                   và{" "}
-                  <button type="button" className="text-blue-600 font-medium hover:underline">
+                  <button
+                    type="button"
+                    className="text-blue-600 font-medium hover:underline"
+                  >
                     chính sách bảo mật
                   </button>
                 </span>
               </label>
-              {errors.agree && <p className="mt-1 text-xs text-red-500 font-medium">{errors.agree}</p>}
+              {errors.agree && (
+                <p className="mt-1 text-xs text-red-500 font-medium">
+                  {errors.agree}
+                </p>
+              )}
             </div>
 
             <button
@@ -304,7 +338,7 @@ function RegisterPage() {
               disabled={loading}
               className="w-full h-11 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold shadow-sm transition-all focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60"
             >
-              {loading ? "Đang đăng ký..." : "Đăng ký"}
+              {loading ? "Đăng ký..." : "Đăng ký"}
             </button>
           </form>
 
@@ -313,7 +347,9 @@ function RegisterPage() {
               <div className="w-full border-t border-gray-200" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="bg-white px-3 text-gray-400">Hoặc đăng ký với</span>
+              <span className="bg-white px-3 text-gray-400">
+                Hoặc đăng ký với
+              </span>
             </div>
           </div>
 

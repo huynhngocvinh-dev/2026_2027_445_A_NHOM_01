@@ -7,6 +7,7 @@ import com.jobCrawler.backend.services.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,6 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -35,95 +37,144 @@ public class AuthController {
     @Autowired
     private JwtUtil jwtUtil;
 
+    // VÙNG ĐỆM RAM: Lưu tạm người dùng chưa xác thực OTP
+    private final Map<String, User> pendingUsers = new ConcurrentHashMap<>();
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         String password = request.get("password");
         String fullName = request.get("fullName");
-        String phoneNumber = request.get("phoneNumber");
-        
-        // --- ĐOẠN ĐÃ SỬA: Xử lý và chuẩn hóa phân quyền (Role) ---
+        String phoneNumber = request.get("phoneNumber"); // Có thể null hoặc rỗng
         String rawRole = request.get("role");
-        String role = "JOB_SEEKER"; // Đặt mặc định là Người tìm việc
 
-        if (rawRole != null && !rawRole.trim().isEmpty()) {
-            if (rawRole.equalsIgnoreCase("employer")) {
-                role = "EMPLOYER";
-            } else if (rawRole.equalsIgnoreCase("job_seeker")) {
-                role = "JOB_SEEKER";
-            } else {
-                return ResponseEntity.badRequest().body("Lỗi: Quyền (role) không hợp lệ! Chỉ chấp nhận 'job_seeker' hoặc 'employer'.");
-            }
+        // 1. Kiểm tra dữ liệu rỗng (ĐÃ BỎ KIỂM TRA PHONENUMBER)
+        if (fullName == null || fullName.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Lỗi: Họ và tên không được để trống!");
         }
-        // ---------------------------------------------------------
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Lỗi: Email không được để trống!");
+        }
+        if (password == null || password.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Lỗi: Mật khẩu không được để trống!");
+        }
+        if (rawRole == null || rawRole.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Lỗi: Vai trò tài khoản không được để trống!");
+        }
+        
+        String emailRegex = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$";
+        if (!email.matches(emailRegex)) {
+            return ResponseEntity.badRequest().body("Lỗi: Định dạng email không hợp lệ!");
+        }
 
-        // 1. Kiểm tra độ mạnh của mật khẩu (Regex)
+        // 2. Chuẩn hóa Role
+        // 2. Chuẩn hóa Role
+        String role = "JOB_SEEKER";
+        if (rawRole.equalsIgnoreCase("employer") || rawRole.equalsIgnoreCase("EMPLOYER")) {
+            role = "EMPLOYER";
+        } else if (rawRole.equalsIgnoreCase("job_seeker") || rawRole.equalsIgnoreCase("JOB_SEEKER") || rawRole.equalsIgnoreCase("CANDIDATE")) {
+            role = "JOB_SEEKER";
+        } else {
+            return ResponseEntity.badRequest().body("Lỗi: Quyền (role) không hợp lệ!");
+        }
+
+        // 3. Kiểm tra độ mạnh mật khẩu
         String passwordRegex = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!]).{8,}$";
-        if (password == null || !password.matches(passwordRegex)) {
-            return ResponseEntity.badRequest().body("Mật khẩu phải có ít nhất 8 ký tự, bao gồm ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt (@#$%^&+=!).");
+        if (!password.matches(passwordRegex)) {
+            return ResponseEntity.badRequest().body("Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.");
         }
 
-        // 2. Kiểm tra email đã tồn tại trong hệ thống chưa
-        Optional<User> existingUser = userRepository.findByEmail(email);
-        if (existingUser.isPresent()) {
-            return ResponseEntity.badRequest().body("Email đã được sử dụng!");
+        // 4. Kiểm tra Email trong DB
+        if (userRepository.findByEmail(email).isPresent()) {
+            return ResponseEntity.badRequest().body("Lỗi: Email này đã được sử dụng!");
         }
 
-        // 3. Thuật toán tạo mã OTP 6 chữ số ngẫu nhiên
+        // 5. Tạo OTP và đóng gói User tạm
         String otp = String.format("%06d", new Random().nextInt(999999));
-
-        // 4. Đóng gói dữ liệu và lưu vào Database 
-        User newUser = User.builder()
+        User pendingUser = User.builder()
                 .email(email)
-                .password(passwordEncoder.encode(password)) // Mật khẩu được băm bảo mật
+                .password(passwordEncoder.encode(password))
                 .fullName(fullName)
-                .phoneNumber(phoneNumber)
-                .role(role) // Đã được chuẩn hóa thành IN HOA
+                .phoneNumber(phoneNumber) // nhận null hoặc rỗng bình thường
+                .role(role)
                 .isVerified(false)
                 .otpCode(otp)
-                .otpExpirationTime(LocalDateTime.now().plusMinutes(1)) 
-                .authProvider("LOCAL") 
+                .otpExpirationTime(LocalDateTime.now().plusHours(1))
+                .authProvider("LOCAL")
                 .build();
 
-        userRepository.save(newUser);
+        // 6. Lưu tạm vào RAM
+        pendingUsers.put(email, pendingUser);
 
-        // 5. Bắn email OTP cho người dùng
-        emailService.sendOtpEmail(email, otp);
+        // 7. Gửi Mail OTP
+        try {
+            emailService.sendOtpEmail(email, otp);
+        } catch (Exception e) {
+            pendingUsers.remove(email);
+            return ResponseEntity.badRequest().body("Lỗi: Không thể gửi mã OTP tới email này. Vui lòng kiểm tra lại địa chỉ email!");
+        }
 
         return ResponseEntity.ok("Đăng ký thành công! Vui lòng kiểm tra email để nhận mã OTP.");
     }
-
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         String otpCode = request.get("otpCode");
 
-        Optional<User> userOptional = userRepository.findByEmail(email);
-        if (userOptional.isEmpty()) {
-            return ResponseEntity.badRequest().body("Không tìm thấy tài khoản!");
-        }
-
-        User user = userOptional.get();
-
-        if (user.isVerified()) {
-            return ResponseEntity.badRequest().body("Tài khoản này đã được xác thực từ trước!");
-        }
+        User pendingUser = pendingUsers.get(email);
         
-        if (!user.getOtpCode().equals(otpCode)) {
+        if (pendingUser == null) {
+            return ResponseEntity.badRequest().body("Không tìm thấy yêu cầu đăng ký hoặc phiên đã hết hạn!");
+        }
+
+        if (!pendingUser.getOtpCode().equals(otpCode)) {
             return ResponseEntity.badRequest().body("Mã OTP không chính xác!");
         }
         
-        if (user.getOtpExpirationTime().isBefore(LocalDateTime.now())) {
-            return ResponseEntity.badRequest().body("Mã OTP đã hết hạn!");
+        if (pendingUser.getOtpExpirationTime().isBefore(LocalDateTime.now())) {
+            pendingUsers.remove(email); 
+            return ResponseEntity.badRequest().body("Mã OTP đã hết hạn! Vui lòng đăng ký lại.");
         }
 
-        user.setVerified(true);
-        user.setOtpCode(null); 
-        user.setOtpExpirationTime(null);
-        userRepository.save(user);
+        // OTP hợp lệ -> Lưu vào DB chính thức (Đã sửa setVerified)
+        pendingUser.setIsVerified(true);
+        pendingUser.setOtpCode(null);
+        pendingUser.setOtpExpirationTime(null);
+        userRepository.save(pendingUser);
+
+        // Clear RAM
+        pendingUsers.remove(email);
 
         return ResponseEntity.ok("Xác thực tài khoản thành công!");
     }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<?> resendOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+
+        if (userRepository.findByEmail(email).isPresent()) {
+            return ResponseEntity.badRequest().body("Tài khoản này đã được xác thực, không cần gửi lại mã!");
+        }
+
+        User pendingUser = pendingUsers.get(email);
+        if (pendingUser == null) {
+            return ResponseEntity.badRequest().body("Không tìm thấy yêu cầu đăng ký, vui lòng đăng ký lại!");
+        }
+
+        String newOtp = String.format("%06d", new Random().nextInt(999999));
+        pendingUser.setOtpCode(newOtp);
+        pendingUser.setOtpExpirationTime(LocalDateTime.now().plusMinutes(5));
+        pendingUsers.put(email, pendingUser); 
+        
+        try {
+            emailService.sendOtpEmail(email, newOtp);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Lỗi: Không thể gửi lại mã OTP. Vui lòng thử lại sau!");
+        }
+
+        return ResponseEntity.ok("Đã gửi lại mã OTP mới. Vui lòng kiểm tra hòm thư!");
+    }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -140,7 +191,6 @@ public class AuthController {
 
         User user = userOptional.get();
 
-        // Tài khoản đăng ký qua Google/Facebook... thì không đăng nhập bằng mật khẩu ở đây
         if (!"LOCAL".equals(user.getAuthProvider())) {
             return ResponseEntity.badRequest()
                     .body("Tài khoản này được đăng ký qua " + user.getAuthProvider()
@@ -170,30 +220,6 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // Endpoint mẫu để kiểm tra token: gửi kèm header "Authorization: Bearer <token>"
-    @GetMapping("/me")
-    public ResponseEntity<?> me() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Chưa đăng nhập!");
-        }
-
-        String email = (String) authentication.getPrincipal();
-        Optional<User> userOptional = userRepository.findByEmail(email);
-        if (userOptional.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Tài khoản không tồn tại!");
-        }
-
-        User user = userOptional.get();
-        Map<String, Object> response = new HashMap<>();
-        response.put("userId", user.getId());
-        response.put("email", user.getEmail());
-        response.put("fullName", user.getFullName());
-        response.put("role", user.getRole());
-        response.put("isVerified", user.isVerified());
-
-        return ResponseEntity.ok(response);
-    }
     @PostMapping("/social-login")
     public ResponseEntity<?> socialLogin(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -201,7 +227,6 @@ public class AuthController {
         
         String rawProvider = request.get("provider");
         String provider = (rawProvider != null) ? rawProvider.toUpperCase() : "UNKNOWN"; 
-        
         String providerId = request.get("providerId"); 
         
         String rawRole = request.get("role");
@@ -223,7 +248,7 @@ public class AuthController {
                     .email(email)
                     .fullName(fullName)
                     .password("") 
-                    .role(role) // Đã được chuẩn hóa
+                    .role(role) 
                     .isVerified(true) 
                     .authProvider(provider)
                     .providerId(providerId)
@@ -248,31 +273,38 @@ public class AuthController {
 
         return ResponseEntity.ok(response);
     }
-    @PostMapping("/resend-otp")
-    public ResponseEntity<?> resendOtp(@RequestBody Map<String, String> request) {
-        String email = request.get("email");
 
+    @GetMapping("/me")
+    public ResponseEntity<?> me() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Chưa đăng nhập!");
+        }
+
+        String email = (String) authentication.getPrincipal();
         Optional<User> userOptional = userRepository.findByEmail(email);
         if (userOptional.isEmpty()) {
-            return ResponseEntity.badRequest().body("Không tìm thấy tài khoản!");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Tài khoản không tồn tại!");
         }
 
         User user = userOptional.get();
+        Map<String, Object> response = new HashMap<>();
+        response.put("userId", user.getId());
+        response.put("email", user.getEmail());
+        response.put("fullName", user.getFullName());
+        response.put("role", user.getRole());
+        response.put("isVerified", user.isVerified());
 
-        // Nếu đã xác thực rồi thì không cho gửi OTP nữa
-        if (user.isVerified()) {
-            return ResponseEntity.badRequest().body("Tài khoản này đã được xác thực, không cần gửi lại mã!");
-        }
+        return ResponseEntity.ok(response);
+    }
 
-        String newOtp = String.format("%06d", new Random().nextInt(999999));
-        user.setOtpCode(newOtp);
-        user.setOtpExpirationTime(LocalDateTime.now().plusMinutes(1)); 
-        
-        userRepository.save(user);
-
-        // Bắn email OTP mới
-        emailService.sendOtpEmail(email, newOtp);
-
-        return ResponseEntity.ok("Đã gửi lại mã OTP mới. Mã có hiệu lực trong 1 phút.");
+    // Tự động xóa rác trên RAM mỗi 15 phút 
+    @Scheduled(fixedRate = 900000)
+    public void cleanupExpiredPendingUsers() {
+        LocalDateTime now = LocalDateTime.now();
+        pendingUsers.entrySet().removeIf(entry -> 
+            entry.getValue().getOtpExpirationTime() != null &&
+            entry.getValue().getOtpExpirationTime().isBefore(now)
+        );        
     }
 }

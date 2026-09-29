@@ -16,7 +16,8 @@ public class EmailService {
     private String fromEmail;
 
     public void sendOtpEmail(String toEmail, String otpCode) {
-        SimpleMailMessage message = new SimpleMailMessage();
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
         
         message.setFrom(fromEmail); 
         
@@ -25,9 +26,16 @@ public class EmailService {
         message.setSubject("Mã xác nhận đăng ký tài khoản - JobFinder");
         message.setText("Chào bạn,\n\n" +
                         "Mã xác nhận (OTP) để kích hoạt tài khoản của bạn là: " + otpCode + "\n\n" +
-                        "Mã này có hiệu lực trong vòng 5 phút. Vui lòng không chia sẻ cho bất kỳ ai.\n\n" +
+                        "Mã này có hiệu lực trong vòng 1 phút. Vui lòng không chia sẻ cho bất kỳ ai.\n\n" +
                         "Trân trọng, \nĐội ngũ JobFinder.");
         
         mailSender.send(message);
+        } catch (Exception e) {
+           // In lỗi chi tiết ra console để debug
+        e.printStackTrace();
+        // Bắt buộc phải ném RuntimeException ra ngoài thì Controller mới tóm được!
+        throw new RuntimeException("Gửi email thất bại: " + e.getMessage());
+        }
+        
     }
 }

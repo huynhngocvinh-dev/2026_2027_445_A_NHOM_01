@@ -5,7 +5,18 @@ import { jobApi } from "../api/jobApi";
 import { ApiError } from "../lib/apiClient";
 import SearchBar from "../components/job/SearchBar";
 import CategoryCard from "../components/job/CategoryCard";
- */
+import JobCard from "../components/job/JobCard";
+import JobDetailModal from "../components/job/JobDetailModal"; // Bổ sung Import Modal
+
+const QUICK_SEARCHES = [
+  "ReactJS",
+  "Node.js",
+  "Java",
+  "Python",
+  "Marketing",
+  "Designer",
+];
+
 function HomePage() {
   const navigate = useNavigate();
 
@@ -15,18 +26,25 @@ function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
+  // State quản lý việc làm đang chọn xem chi tiết bằng Modal
+  const [selectedJob, setSelectedJob] = useState(null);
+
   useEffect(() => {
     let cancelled = false;
 
     Promise.all([jobApi.getFeaturedJobs(6), jobApi.getCategories()])
       .then(([featuredJobs, jobCategories]) => {
         if (cancelled) return;
-        setJobs(featuredJobs);
-        setCategories(jobCategories);
+        setJobs(featuredJobs || []);
+        setCategories(jobCategories || []);
       })
       .catch((error) => {
         if (cancelled) return;
-        setLoadError(error instanceof ApiError ? error.message : "Không thể tải dữ liệu việc làm.");
+        setLoadError(
+          error instanceof ApiError
+            ? error.message
+            : "Không thể tải dữ liệu việc làm."
+        );
       })
       .finally(() => !cancelled && setIsLoading(false));
 
@@ -55,7 +73,7 @@ function HomePage() {
       {/* ===================== HERO ===================== */}
       <section className="bg-gradient-to-br from-blue-800 via-blue-700 to-blue-600">
         <div className="max-w-[1400px] mx-auto px-5 lg:px-8">
-          <div className="min-h-[315px] flex flex-col items-center justify-center text-center">
+          <div className="min-h-[315px] flex flex-col items-center justify-center text-center py-10">
             <h1 className="text-3xl sm:text-4xl lg:text-[38px] font-bold text-white tracking-tight">
               Tìm công việc phù hợp với bạn
             </h1>
@@ -68,11 +86,15 @@ function HomePage() {
             </div>
 
             <div className="mt-4 flex flex-wrap justify-center items-center gap-2">
-              <span className="text-xs text-blue-100 font-medium mr-1">Tìm nhanh:</span>
+              <span className="text-xs text-blue-100 font-medium mr-1">
+                Tìm nhanh:
+              </span>
               {QUICK_SEARCHES.map((item) => (
                 <button
                   key={item}
-                  onClick={() => navigate(`/jobs?keyword=${encodeURIComponent(item)}`)}
+                  onClick={() =>
+                    navigate(`/jobs?keyword=${encodeURIComponent(item)}`)
+                  }
                   className="px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white text-[11px] font-medium transition"
                 >
                   {item}
@@ -89,8 +111,12 @@ function HomePage() {
         <section className="py-10">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Việc làm phù hợp với bạn</h2>
-              <p className="mt-1 text-sm text-gray-500">Dựa trên kỹ năng và kinh nghiệm của bạn</p>
+              <h2 className="text-xl font-bold text-gray-900">
+                Việc làm phù hợp với bạn
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Dựa trên kỹ năng và kinh nghiệm của bạn
+              </p>
             </div>
             <button
               onClick={() => navigate("/jobs")}
@@ -101,11 +127,17 @@ function HomePage() {
           </div>
 
           {isLoading ? (
-            <p className="text-center text-sm text-gray-400 py-10">Đang tải việc làm...</p>
+            <p className="text-center text-sm text-gray-400 py-10">
+              Đang tải việc làm...
+            </p>
           ) : loadError ? (
-            <p className="text-center text-sm text-red-500 py-10">{loadError}</p>
+            <p className="text-center text-sm text-red-500 py-10">
+              {loadError}
+            </p>
           ) : jobs.length === 0 ? (
-            <p className="text-center text-sm text-gray-400 py-10">Chưa có việc làm nào để hiển thị.</p>
+            <p className="text-center text-sm text-gray-400 py-10">
+              Chưa có việc làm nào để hiển thị.
+            </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {jobs.map((job) => (
@@ -114,7 +146,8 @@ function HomePage() {
                   job={job}
                   saved={savedJobIds.has(job.id)}
                   onToggleSave={toggleSaveJob}
-                  onApply={(j) => navigate(`/jobs?highlight=${j.id}`)}
+                  onClickCard={(j) => setSelectedJob(j)}
+                  onApply={(j) => setSelectedJob(j)}
                 />
               ))}
             </div>
@@ -125,14 +158,18 @@ function HomePage() {
         {categories.length > 0 && (
           <section className="pb-12">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold text-gray-900">Ngành nghề phổ biến</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                Ngành nghề phổ biến
+              </h2>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {categories.map((category) => (
                 <CategoryCard
-                  key={category.title}
+                  key={category.title || category.id}
                   category={category}
-                  onClick={(c) => navigate(`/jobs?category=${encodeURIComponent(c.title)}`)}
+                  onClick={(c) =>
+                    navigate(`/jobs?category=${encodeURIComponent(c.title)}`)
+                  }
                 />
               ))}
             </div>
@@ -144,7 +181,9 @@ function HomePage() {
       <section className="bg-blue-600">
         <div className="max-w-[1400px] mx-auto px-5 lg:px-8">
           <div className="py-12 sm:py-14 text-center">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">Chưa có tài khoản?</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white">
+              Chưa có tài khoản?
+            </h2>
             <p className="mt-2 text-sm text-blue-100">
               Đăng ký để nhận gợi ý việc làm cá nhân hóa và theo dõi ứng tuyển.
             </p>
@@ -165,6 +204,16 @@ function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ===================== JOB DETAIL MODAL ===================== */}
+      {selectedJob && (
+        <JobDetailModal
+          job={selectedJob}
+          onClose={() => setSelectedJob(null)}
+          saved={savedJobIds.has(selectedJob.id)}
+          onToggleSave={toggleSaveJob}
+        />
+      )}
     </div>
   );
 }

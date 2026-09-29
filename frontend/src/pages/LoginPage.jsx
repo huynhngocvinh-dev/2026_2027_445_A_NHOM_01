@@ -8,11 +8,29 @@ import { useAuth } from "../hooks/useAuth";
 import { ApiError } from "../lib/apiClient";
 import { ROLES } from "../constants/roles";
 
-// Sau khi đăng nhập, điều hướng theo role: admin vào trang quản trị,
-// còn lại quay về trang trước đó (nếu bị ProtectedRoute đá ra) hoặc trang chủ.
+// XỬ LÝ ĐIỀU HƯỚNG CHUẨN THEO VAI TRÒ (ROLE)
 function resolveRedirectPath(role, fromPath) {
-  if (role === ROLES.ADMIN) return "/admin";
-  return fromPath || "/";
+  const normalizedRole = (role || "").toUpperCase();
+
+  // 1. Quản trị viên -> sang Admin Dashboard
+  if (normalizedRole === ROLES.ADMIN || normalizedRole === "ADMIN") {
+    return "/admin";
+  }
+
+  // 2. Nhà tuyển dụng (HR) -> sang Hr Portal
+  if (
+    normalizedRole === ROLES.EMPLOYER ||
+    normalizedRole === "EMPLOYER" ||
+    normalizedRole === "HR"
+  ) {
+    return "/hr/company"; // Hoặc /hr/jobs
+  }
+
+  // 3. Ưu tiên trang người dùng vừa định truy cập trước khi bị ProtectedRoute chuyển hướng
+  if (fromPath) return fromPath;
+
+  // 4. Mặc định Ứng viên (Candidate) -> Trang chủ
+  return "/";
 }
 
 function LoginPage() {
@@ -21,14 +39,21 @@ function LoginPage() {
   const { login, loginWithSocial } = useAuth();
   const fromPath = location.state?.from?.pathname;
 
-  const [formData, setFormData] = useState({ email: "", password: "", remember: false });
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+    remember: false,
+  });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
@@ -57,20 +82,27 @@ function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      const authResponse = await login({ email: formData.email.trim(), password: formData.password });
+      const authResponse = await login({
+        email: formData.email.trim(),
+        password: formData.password,
+      });
       toast.success("Đăng nhập thành công!");
-      navigate(resolveRedirectPath(authResponse.role, fromPath), { replace: true });
+
+      // Lấy role từ phản hồi authResponse (hỗ trợ cả dạng object user hoặc trả thẳng role)
+      const userRole = authResponse?.role || authResponse?.user?.role;
+
+      navigate(resolveRedirectPath(userRole, fromPath), { replace: true });
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Đăng nhập thất bại. Vui lòng thử lại.");
+      toast.error(
+        err instanceof ApiError
+          ? err.message
+          : "Đăng nhập thất bại. Vui lòng thử lại."
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Đăng nhập Google/Facebook thật cần tích hợp SDK riêng (Google Identity
-  // Services / Facebook Login) để lấy id token, rồi gọi loginWithSocial({
-  // email, fullName, provider, providerId }) map sang API /auth/social-login
-  // đã có sẵn ở backend. Tạm thời báo cho người dùng biết chưa khả dụng.
   const handleSocialLoginPlaceholder = (provider) => {
     toast.info(`Đăng nhập bằng ${provider} đang được phát triển.`);
     void loginWithSocial;
@@ -78,12 +110,15 @@ function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] flex items-center justify-center px-6 py-10">
-      {/* BACKGROUND XANH - phủ toàn bộ màn hình */}
+      {/* BACKGROUND XANH */}
       <div className="fixed inset-0 overflow-hidden -z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#dbe9f8] via-[#b8d3f0] to-[#82acd8]" />
         <div
           className="absolute top-[12%] left-[7%] w-20 h-20 bg-gradient-to-br from-[#0b4b9b] to-[#2784cf] shadow-xl rotate-[25deg]"
-          style={{ clipPath: "polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%)" }}
+          style={{
+            clipPath:
+              "polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%)",
+          }}
         />
         <div className="absolute top-[18%] left-[18%] w-6 h-6 rounded-full bg-[#1468b8] shadow-lg" />
         <div className="absolute top-[4%] right-[7%] w-12 h-12 rounded-lg bg-gradient-to-br from-[#0b4b9b] to-[#2784cf] shadow-xl rotate-[25deg]" />
@@ -95,14 +130,21 @@ function LoginPage() {
       {/* FORM LOGIN */}
       <div className="relative z-10 w-full max-w-md rounded-2xl bg-[#f8f9fc] shadow-2xl px-10 py-12">
         <div className="mb-8">
-          <h1 className="text-3xl font-semibold text-gray-900 mb-2">Chào mừng trở lại</h1>
-          <p className="text-sm text-gray-500">Vui lòng đăng nhập vào tài khoản của bạn.</p>
+          <h1 className="text-3xl font-semibold text-gray-900 mb-2">
+            Chào mừng trở lại
+          </h1>
+          <p className="text-sm text-gray-500">
+            Vui lòng đăng nhập vào tài khoản của bạn.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
           {/* EMAIL */}
           <div className="mb-5">
-            <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-700">
+            <label
+              htmlFor="email"
+              className="block mb-2 text-sm font-medium text-gray-700"
+            >
               Email
             </label>
             <div className="relative">
@@ -121,18 +163,25 @@ function LoginPage() {
                 }`}
               />
             </div>
-            {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+            {errors.email && (
+              <p className="mt-1 text-xs text-red-500">{errors.email}</p>
+            )}
           </div>
 
           {/* PASSWORD */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <label htmlFor="password" className="text-sm font-medium text-gray-700">
+              <label
+                htmlFor="password"
+                className="text-sm font-medium text-gray-700"
+              >
                 Mật khẩu
               </label>
               <button
                 type="button"
-                onClick={() => toast.info("Tính năng quên mật khẩu đang được phát triển.")}
+                onClick={() =>
+                  toast.info("Tính năng quên mật khẩu đang được phát triển.")
+                }
                 className="text-xs text-blue-600 hover:underline"
               >
                 Quên mật khẩu?
@@ -162,7 +211,9 @@ function LoginPage() {
                 {showPassword ? "Ẩn" : "Hiện"}
               </button>
             </div>
-            {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
+            {errors.password && (
+              <p className="mt-1 text-xs text-red-500">{errors.password}</p>
+            )}
           </div>
 
           {/* GHI NHỚ */}
@@ -175,7 +226,10 @@ function LoginPage() {
               onChange={handleChange}
               className="h-4 w-4 cursor-pointer accent-blue-700"
             />
-            <label htmlFor="remember" className="text-sm text-gray-600 cursor-pointer">
+            <label
+              htmlFor="remember"
+              className="text-sm text-gray-600 cursor-pointer"
+            >
               Ghi nhớ đăng nhập
             </label>
           </div>
@@ -201,7 +255,9 @@ function LoginPage() {
           {/* DIVIDER */}
           <div className="flex items-center gap-3 my-7">
             <div className="h-px flex-1 bg-gray-200" />
-            <span className="text-xs text-gray-400 whitespace-nowrap">Hoặc đăng nhập với</span>
+            <span className="text-xs text-gray-400 whitespace-nowrap">
+              Hoặc đăng nhập với
+            </span>
             <div className="h-px flex-1 bg-gray-200" />
           </div>
 

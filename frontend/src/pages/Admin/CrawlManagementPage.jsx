@@ -1,234 +1,176 @@
-// Dữ liệu thu thập
-function CrawlManagementPage() {
-  const crawlData = [
-    {
-      id: 1,
-      url: "https://topcv.vn/vi...",
-      source: "TopCV",
-      content: "Java Backend Developer tại ...",
-      startDate: "20/03/2024",
-      startTime: "08:30",
-      status: "Đã phân tích",
-      job: "Java Backend Developer - FPT Software",
-      crawlDate: "20/03/2024",
-      crawlTime: "09:00",
-    },
-    {
-      id: 2,
-      url: "https://linkedin.co...",
-      source: "LinkedIn",
-      content: "React Frontend Developer at ...",
-      startDate: "20/03/2024",
-      startTime: "07:15",
-      status: "Đã phân tích",
-      job: "React Frontend Developer - VNG",
-      crawlDate: "20/03/2024",
-      crawlTime: "08:00",
-    },
-    {
-      id: 3,
-      url: "https://facebook.co...",
-      source: "Facebook",
-      content: "Tuyển dụng UI/UX Designer...",
-      startDate: "19/03/2024",
-      startTime: "15:00",
-      status: "Đang chờ",
-      job: "-",
-      crawlDate: "19/03/2024",
-      crawlTime: "16:00",
-    },
-  ];
+import { useState } from "react";
+import {
+  FaRobot,
+  FaPlay,
+  FaTerminal,
+  FaToggleOn,
+  FaToggleOff,
+  FaSpinner,
+} from "react-icons/fa";
+import { toast } from "react-toastify";
+import axios from "axios";
+
+export default function CrawlManagementPage() {
+  const [autoPilot, setAutoPilot] = useState(false);
+  const [crawlUrl, setCrawlUrl] = useState("");
+  const [isCrawling, setIsCrawling] = useState(false);
+  const [logs, setLogs] = useState([
+    `[${new Date().toLocaleTimeString()}] Hệ thống Crawler Bot sẵn sàng...`,
+  ]);
+
+  const addLog = (msg) => {
+    setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+  };
+
+  const handleToggleAutoPilot = () => {
+    const newState = !autoPilot;
+    setAutoPilot(newState);
+    addLog(
+      `Bot Auto-Pilot đã được ${newState ? "KÍCH HOẠT (Quét tự động)" : "TẮT"}.`
+    );
+    toast.info(`Bot Auto-Pilot: ${newState ? "Bật" : "Tắt"}`);
+  };
+
+  const handleStartCrawl = async (e) => {
+    e.preventDefault();
+    if (!crawlUrl.trim()) {
+      toast.warning("Vui lòng nhập URL nhóm/trang Facebook!");
+      return;
+    }
+
+    if (!crawlUrl.includes("facebook.com")) {
+      toast.warning(
+        "Đường dẫn phải thuộc nền tảng Facebook (facebook.com/...)"
+      );
+      return;
+    }
+
+    try {
+      setIsCrawling(true);
+      addLog(`Khởi chạy Bot cào dữ liệu cho URL: ${crawlUrl}`);
+
+      // Gọi API xuống Spring Boot Backend
+      const res = await axios.post(
+        "http://localhost:8080/api/admin/crawl/start",
+        {
+          url: crawlUrl,
+        }
+      );
+
+      addLog(`Server phản hồi: ${res.data.message}`);
+      addLog("Bot Puppeteer đang mở Chrome ngầm để cào bài viết...");
+      toast.success(
+        "Đã gửi lệnh cào thành công! Vui lòng chờ bài viết đổ về trang Duyệt tin."
+      );
+
+      setCrawlUrl("");
+    } catch (err) {
+      addLog(`Lỗi khi gọi Bot: ${err.response?.data?.message || err.message}`);
+      toast.error("Không thể kết nối với hệ thống Crawler!");
+    } finally {
+      setIsCrawling(false);
+    }
+  };
 
   return (
-    <div className="min-h-[calc(100vh-72px)] bg-slate-100 p-8 text-slate-900">
-      {/* =====================================================
-          TIÊU ĐỀ
-      ====================================================== */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Dữ liệu thu thập</h1>
-
-        <p className="mt-2 text-lg text-slate-500">
-          Quản lý dữ liệu thô từ các nguồn tuyển dụng
-        </p>
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <div className="flex items-center gap-3">
+        <FaRobot className="text-3xl text-indigo-600" />
+        <h1 className="text-2xl font-bold text-gray-800">
+          Quản lý Bot Thu thập dữ liệu
+        </h1>
       </div>
 
-      {/* =====================================================
-          STATISTICS
-      ====================================================== */}
-      <div className="mb-7 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          title="Tổng dữ liệu"
-          value="48.920"
-          icon="◡"
-          iconBg="bg-blue-50"
-          iconText="text-blue-600"
-        />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Cột trái: Form điều khiển Bot */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Card Auto-Pilot */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-lg text-gray-800">
+                Bot Auto-Pilot
+              </h3>
+              <p className="text-sm text-gray-500">Quét tự động định kỳ</p>
+              <span
+                className={`inline-block mt-2 text-xs px-2.5 py-1 rounded-full font-medium ${
+                  autoPilot
+                    ? "bg-green-100 text-green-700"
+                    : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                ● {autoPilot ? "Đang hoạt động" : "Đang ngủ"}
+              </span>
+            </div>
+            <button
+              onClick={handleToggleAutoPilot}
+              className="text-4xl transition-colors"
+            >
+              {autoPilot ? (
+                <FaToggleOn className="text-indigo-600 cursor-pointer" />
+              ) : (
+                <FaToggleOff className="text-gray-400 cursor-pointer" />
+              )}
+            </button>
+          </div>
 
-        <StatCard
-          title="Đã xử lý"
-          value="45.240"
-          icon="✓"
-          iconBg="bg-green-50"
-          iconText="text-green-600"
-        />
+          {/* Card Cào theo URL Facebook */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+            <h3 className="font-semibold text-lg text-gray-800">
+              Cào thủ công theo URL
+            </h3>
+            <form onSubmit={handleStartCrawl} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                  Nhập link Facebook Group / Page tuyển dụng:
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://www.facebook.com/groups/327940020092140"
+                  value={crawlUrl}
+                  onChange={(e) => setCrawlUrl(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  required
+                />
+              </div>
 
-        <StatCard
-          title="Đang chờ"
-          value="2.480"
-          icon="◷"
-          iconBg="bg-orange-50"
-          iconText="text-orange-500"
-        />
-
-        <StatCard
-          title="Lỗi"
-          value="1.200"
-          icon="!"
-          iconBg="bg-red-50"
-          iconText="text-red-500"
-        />
-      </div>
-
-      {/* =====================================================
-          FILTER
-      ====================================================== */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex gap-3">
-          <select className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-slate-600 outline-none">
-            <option>Tất cả nguồn</option>
-            <option>TopCV</option>
-            <option>LinkedIn</option>
-            <option>Facebook</option>
-          </select>
-
-          <select className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-slate-600 outline-none">
-            <option>Tất cả trạng thái</option>
-            <option>Đã phân tích</option>
-            <option>Đang chờ</option>
-            <option>Lỗi</option>
-          </select>
+              <button
+                type="submit"
+                disabled={isCrawling}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-xl flex items-center justify-center gap-2 transition duration-200 disabled:opacity-50"
+              >
+                {isCrawling ? (
+                  <>
+                    <FaSpinner className="animate-spin" /> Đang khởi chạy Bot...
+                  </>
+                ) : (
+                  <>
+                    <FaPlay className="text-xs" /> Tiến hành cào dữ liệu
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
         </div>
 
-        <button
-          onClick={() => alert("Bắt đầu chạy thu thập dữ liệu")}
-          className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
-        >
-          Chạy thu thập
-        </button>
-      </div>
-
-      {/* =====================================================
-          DATA TABLE
-      ====================================================== */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px]">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left text-sm text-slate-500">
-                <th className="px-6 py-5 font-semibold">URL NGUỒN</th>
-
-                <th className="px-6 py-5 font-semibold">NHÓM NGUỒN</th>
-
-                <th className="px-6 py-5 font-semibold">NỘI DUNG THÔ</th>
-
-                <th className="px-6 py-5 font-semibold">ĐĂNG LÚC</th>
-
-                <th className="px-6 py-5 font-semibold">TRẠNG THÁI</th>
-
-                <th className="px-6 py-5 font-semibold">TIN ĐÃ PHÂN TÍCH</th>
-
-                <th className="px-6 py-5 font-semibold">NGÀY THU THẬP</th>
-
-                <th className="px-6 py-5 font-semibold">#</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {crawlData.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-slate-100 last:border-0"
-                >
-                  {/* URL */}
-                  <td className="px-6 py-6 text-blue-600">{item.url}</td>
-
-                  {/* SOURCE */}
-                  <td className="px-6 py-6">
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">
-                      {item.source}
-                    </span>
-                  </td>
-
-                  {/* CONTENT */}
-                  <td className="px-6 py-6 text-slate-600">{item.content}</td>
-
-                  {/* START DATE + TIME */}
-                  <td className="px-6 py-6 text-slate-500">
-                    <div>{item.startDate}</div>
-
-                    <div className="mt-1">{item.startTime}</div>
-                  </td>
-
-                  {/* STATUS */}
-                  <td className="px-6 py-6">
-                    <span
-                      className={`rounded-full px-3 py-2 text-sm ${
-                        item.status === "Đã phân tích"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                  </td>
-
-                  {/* ANALYZED JOB */}
-                  <td className="px-6 py-6 font-medium text-green-700">
-                    {item.job}
-                  </td>
-
-                  {/* CRAWL DATE */}
-                  <td className="px-6 py-6 text-slate-500">
-                    <div>{item.crawlDate}</div>
-
-                    <div className="mt-1">{item.crawlTime}</div>
-                  </td>
-
-                  {/* ACTION */}
-                  <td className="px-6 py-6">
-                    <button
-                      onClick={() => alert(`Xem dữ liệu: ${item.url}`)}
-                      className="font-medium text-blue-600 hover:underline"
-                    >
-                      Xem
-                    </button>
-                  </td>
-                </tr>
+        {/* Cột phải: Terminal Logs */}
+        <div className="lg:col-span-7">
+          <div className="bg-slate-900 rounded-2xl p-4 text-slate-200 font-mono text-sm h-[380px] flex flex-col shadow-lg border border-slate-800">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800 text-slate-400">
+              <div className="flex items-center gap-2">
+                <FaTerminal />
+                <span className="text-xs">crawler_bot_status.log</span>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2 pr-2 scrollbar-thin">
+              {logs.map((log, idx) => (
+                <p key={idx} className="leading-relaxed text-slate-300">
+                  {log}
+                </p>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
-function StatCard({ title, value, icon, iconBg, iconText }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <span className="text-lg text-slate-500">{title}</span>
-
-        <div
-          className={`flex h-11 w-11 items-center justify-center rounded-full ${iconBg} ${iconText} text-xl font-bold`}
-        >
-          {icon}
-        </div>
-      </div>
-
-      <div className="mt-6 text-3xl font-bold">{value}</div>
-    </div>
-  );
-}
-
-export default CrawlManagementPage;
