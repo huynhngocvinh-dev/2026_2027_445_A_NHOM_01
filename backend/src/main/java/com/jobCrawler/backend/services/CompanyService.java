@@ -7,8 +7,9 @@ import com.jobCrawler.backend.repositories.CompanyRepository;
 import com.jobCrawler.backend.repositories.JobRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
+import java.util.Collections;
 
 @Service
 @RequiredArgsConstructor
@@ -18,21 +19,21 @@ public class CompanyService {
     private final JobRepository jobRepository;
     private final ApplicationRepository applicationRepository;
 
+    /**
+     * Lấy thông tin công ty theo hrUserId.
+     * Nếu chưa có trong DB -> Trả về DTO khởi tạo mặc định (Tránh lỗi 404 ở Front-end).
+     */
     public CompanyDTO getCompanyByHrId(Long hrUserId) {
-        Optional<Company> companyOpt = companyRepository.findByHrUserId(hrUserId);
-        
         long jobCount = jobRepository.countByEmployerId(hrUserId);
-        long candidateCount = applicationRepository.countCandidatesByHrUserId(hrUserId); // Con số thực tế từ DB
+        long candidateCount = applicationRepository.countCandidatesByHrUserId(hrUserId);
 
-        if (companyOpt.isEmpty()) {
-            return CompanyDTO.builder()
-                    .totalJobs(jobCount)
-                    .totalCandidates(candidateCount)
-                    .totalViews(0L)
-                    .build();
-        }
-
-        Company company = companyOpt.get();
+        // Tìm công ty hoặc tự tạo đối tượng Company mới nếu chưa tồn tại
+        Company company = companyRepository.findByHrUserId(hrUserId)
+                .orElseGet(() -> Company.builder()
+                        .hrUserId(hrUserId)
+                        .isVerified(false)
+                        .images(Collections.emptyList())
+                        .build());
 
         return CompanyDTO.builder()
                 .name(company.getName())
@@ -44,18 +45,26 @@ public class CompanyService {
                 .address(company.getAddress())
                 .description(company.getDescription())
                 .isVerified(company.isVerified())
-                .images(company.getImages())
+                .images(company.getImages() != null ? company.getImages() : Collections.emptyList())
                 .totalJobs(jobCount)
                 .totalCandidates(candidateCount)
                 .totalViews(0L)
                 .build();
     }
 
-
+    /**
+     * Lưu hoặc Cập nhật thông tin công ty theo hrUserId.
+     */
+    @Transactional
     public CompanyDTO saveOrUpdateCompany(Long hrUserId, CompanyDTO dto) {
+        // 1. Tìm hoặc Khởi tạo entity Company mới
         Company company = companyRepository.findByHrUserId(hrUserId)
-                .orElse(Company.builder().hrUserId(hrUserId).isVerified(false).build());
+                .orElseGet(() -> Company.builder()
+                        .hrUserId(hrUserId)
+                        .isVerified(false)
+                        .build());
 
+        // 2. Cập nhật các trường dữ liệu
         company.setName(dto.getName());
         company.setIndustry(dto.getIndustry());
         company.setEmployees(dto.getEmployees());
@@ -64,21 +73,32 @@ public class CompanyService {
         company.setWebsite(dto.getWebsite());
         company.setAddress(dto.getAddress());
         company.setDescription(dto.getDescription());
-        
+
         if (dto.getImages() != null) {
             company.setImages(dto.getImages());
         }
 
+        // 3. Lưu xuống CSDL (Tự động INSERT nếu chưa có, UPDATE nếu đã có)
         Company savedCompany = companyRepository.save(company);
-        
+
+        // 4. Lấy lại các số liệu thống kê thực tế để trả về
         long jobCount = jobRepository.countByEmployerId(hrUserId);
+        long candidateCount = applicationRepository.countCandidatesByHrUserId(hrUserId);
 
-        dto.setIsVerified(savedCompany.isVerified());
-        dto.setImages(savedCompany.getImages());
-        dto.setTotalJobs(jobCount);
-        dto.setTotalCandidates(0L);
-        dto.setTotalViews(0L);
-
-        return dto;
+        return CompanyDTO.builder()
+                .name(savedCompany.getName())
+                .industry(savedCompany.getIndustry())
+                .employees(savedCompany.getEmployees())
+                .email(savedCompany.getEmail())
+                .phone(savedCompany.getPhone())
+                .website(savedCompany.getWebsite())
+                .address(savedCompany.getAddress())
+                .description(savedCompany.getDescription())
+                .isVerified(savedCompany.isVerified())
+                .images(savedCompany.getImages())
+                .totalJobs(jobCount)
+                .totalCandidates(candidateCount)
+                .totalViews(0L)
+                .build();
     }
 }

@@ -6,84 +6,63 @@ import com.jobCrawler.backend.models.User;
 import com.jobCrawler.backend.repositories.JobRepository;
 import com.jobCrawler.backend.repositories.SavedJobRepository;
 import com.jobCrawler.backend.repositories.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/saved-jobs")
+@RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class SavedJobController {
 
-    @Autowired
-    private SavedJobRepository savedJobRepository;
-    @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private JobRepository jobRepository;
+    private final SavedJobRepository savedJobRepository;
+    private final JobRepository jobRepository;
+    private final UserRepository userRepository;
 
-    // 1. API Nút Lưu / Bỏ lưu công việc (Dùng chung 1 nút)
-    @PostMapping("/toggle")
-    public ResponseEntity<?> toggleSaveJob(@RequestBody Map<String, Object> request) {
-        String email = (String) request.get("userEmail");
-        Long jobId = ((Number) request.get("jobId")).longValue();
+    // 1. Lấy danh sách việc làm đã lưu của User
+    @GetMapping
+    public ResponseEntity<?> getSavedJobs(@RequestHeader("X-User-Id") Long userId) {
+        List<SavedJob> savedJobs = savedJobRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        List<Job> jobs = savedJobs.stream().map(SavedJob::getJob).toList();
+        return ResponseEntity.ok(jobs);
+    }
 
-        if (email == null || jobId == null) {
-            return ResponseEntity.badRequest().body("Lỗi: Thiếu thông tin email hoặc jobId!");
-        }
+    // 2. Lấy danh sách ID các bài viết đã lưu (để Frontend render màu icon)
+    @GetMapping("/ids")
+    public ResponseEntity<List<Long>> getSavedJobIds(@RequestHeader("X-User-Id") Long userId) {
+        List<SavedJob> savedJobs = savedJobRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        List<Long> jobIds = savedJobs.stream().map(sj -> sj.getJob().getId()).toList();
+        return ResponseEntity.ok(jobIds);
+    }
 
-        // Tìm User
-        Optional<User> userOpt = userRepository.findByEmail(email);
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body("Lỗi: Không tìm thấy người dùng!");
-        }
-        User user = userOpt.get();
+    // 3. Toggle Lưu / Bỏ lưu công việc
+    @PostMapping("/{jobId}")
+    @Transactional
+    public ResponseEntity<?> toggleSaveJob(@PathVariable Long jobId, @RequestHeader("X-User-Id") Long userId) {
+        boolean isSaved = savedJobRepository.existsByUserIdAndJobId(userId, jobId);
 
-        // Chặn nhà tuyển dụng tự đi lưu việc làm
-        if (!"JOB_SEEKER".equalsIgnoreCase(user.getRole())) {
-            return ResponseEntity.badRequest().body("Lỗi: Chỉ Người tìm việc mới có thể lưu bài đăng!");
-        }
-
-        // Tìm Job
-        Optional<Job> jobOpt = jobRepository.findById(jobId);
-        if (jobOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body("Lỗi: Bài tuyển dụng không tồn tại!");
-        }
-        Job job = jobOpt.get();
-
-        // Kiểm tra xem đã lưu chưa
-        Optional<SavedJob> existingSavedJob = savedJobRepository.findByUserAndJob(user, job);
-        
-        if (existingSavedJob.isPresent()) {
-            // Nếu đã lưu rồi -> Bấm lại là Hủy lưu (Xóa khỏi DB)
-            savedJobRepository.delete(existingSavedJob.get());
-            return ResponseEntity.ok("Đã bỏ lưu công việc này.");
+        if (isSaved) {
+            savedJobRepository.deleteByUserIdAndJobId(userId, jobId);
+            return ResponseEntity.ok("UNSAVED");
         } else {
-            // Nếu chưa lưu -> Thêm mới vào DB
-            SavedJob newSavedJob = SavedJob.builder()
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+            Job job = jobRepository.findById(jobId)
+                    .orElseThrow(() -> new RuntimeException("Job không tồn tại"));
+
+            SavedJob savedJob = SavedJob.builder()
                     .user(user)
                     .job(job)
                     .createdAt(LocalDateTime.now())
                     .build();
-            savedJobRepository.save(newSavedJob);
-            return ResponseEntity.ok("Đã lưu công việc thành công.");
-        }
-    }
 
-    // 2. API Lấy danh sách việc làm đã lưu của 1 ứng viên
-    @GetMapping("/my-list")
-    public ResponseEntity<?> getMySavedJobs(@RequestParam String email) {
-        Optional<User> userOpt = userRepository.findByEmail(email);
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body("Lỗi: Không tìm thấy người dùng!");
+            savedJobRepository.save(savedJob);
+            return ResponseEntity.ok("SAVED");
         }
-        
-        List<SavedJob> savedJobs = savedJobRepository.findByUserOrderByCreatedAtDesc(userOpt.get());
-        return ResponseEntity.ok(savedJobs);
     }
 }

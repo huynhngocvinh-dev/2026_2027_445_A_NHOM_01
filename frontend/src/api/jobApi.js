@@ -1,8 +1,21 @@
 import { api } from "../lib/apiClient";
 
-// Lớp gọi API RESTful cho module việc làm.
+// Helper lấy ID người dùng chuẩn từ localStorage
+const getUserId = () => {
+  try {
+    const userStr = localStorage.getItem("user");
+    if (!userStr) return null;
+    
+    const user = JSON.parse(userStr);
+    // Ưu tiên userId theo đúng cấu trúc JSON backend trả về trong ảnh
+    return user.userId || user.id || null; 
+  } catch {
+    return null;
+  }
+};
+
 export const jobApi = {
-  // Lấy danh sách việc làm nổi bật cho trang chủ
+  // Lấy danh sách việc làm nổi bật
   getFeaturedJobs: (limit = 6) =>
     api.get(`/jobs/featured?limit=${limit}`, { auth: false }),
 
@@ -27,24 +40,39 @@ export const jobApi = {
     return api.get(`/jobs?${params.toString()}`, { auth: false });
   },
 
-  // Lấy danh sách danh mục ngành nghề
   getCategories: () => api.get("/jobs/categories", { auth: false }),
-
-  // Lấy chi tiết 1 việc làm
   getJobById: (id) => api.get(`/jobs/${id}`, { auth: false }),
-
-  // SỬA TẠI ĐÂY: Khớp 100% với @PostMapping("/hr/create") trong JobController.java
   createJob: (payload) => api.post("/jobs/hr/create", payload),
-
-  // Cập nhật & Xóa tin tuyển dụng
   updateJob: (id, payload) => api.put(`/jobs/${id}`, payload),
   deleteJob: (id) => api.del(`/jobs/${id}`),
 
-  // Quản lý việc làm đã lưu
-  getSavedJobs: () => api.get("/jobs/saved"),
-  saveJob: (id) => api.post(`/jobs/${id}/save`),
-  unsaveJob: (id) => api.del(`/jobs/${id}/save`),
+  // ===== MODULE LƯU JOB YÊU THÍCH =====
 
-  // Ứng tuyển việc làm
+  // Lấy danh sách công việc đã lưu
+  getSavedJobs: () => {
+    const userId = getUserId();
+    return api.get("/saved-jobs", {
+      headers: { "X-User-Id": userId },
+    });
+  },
+
+  // Lấy danh sách Mảng ID các job đã lưu
+  getSavedJobIds: () => {
+    const userId = getUserId();
+    if (!userId) return Promise.resolve([]);
+    return api.get("/saved-jobs/ids", {
+      headers: { "X-User-Id": userId },
+    });
+  },
+
+  // Toggle Lưu / Bỏ lưu công việc
+  toggleSaveJob: (jobId) => {
+    const userId = getUserId();
+    if (!userId) return Promise.reject(new Error("Vui lòng đăng nhập để thực hiện thao tác này"));
+    return api.post(`/saved-jobs/${jobId}`, {}, {
+      headers: { "X-User-Id": userId },
+    });
+  },
+
   applyJob: (id, payload) => api.post(`/jobs/${id}/apply`, payload),
 };
