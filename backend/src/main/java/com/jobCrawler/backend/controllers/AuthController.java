@@ -12,7 +12,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-
+import com.jobCrawler.backend.dto.CandidateProfileRequest;
+import com.jobCrawler.backend.models.CandidateProfile;
+import com.jobCrawler.backend.repositories.CandidateProfileRepository;
+import java.security.Principal;
+import java.util.Map;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +40,9 @@ public class AuthController {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private CandidateProfileRepository candidateProfileRepository;
 
     // VÙNG ĐỆM RAM: Lưu tạm người dùng chưa xác thực OTP
     private final Map<String, User> pendingUsers = new ConcurrentHashMap<>();
@@ -306,5 +313,42 @@ public class AuthController {
             entry.getValue().getOtpExpirationTime() != null &&
             entry.getValue().getOtpExpirationTime().isBefore(now)
         );        
+    }
+    @PutMapping("/me")
+    public ResponseEntity<?> updateProfile(@RequestBody CandidateProfileRequest request, Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(401).body(Map.of("message", "Chưa xác thực người dùng!"));
+        }
+
+        String email = principal.getName();
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        // 1. Cập nhật thông tin cơ bản vào bảng User
+        user.setFullName(request.getFullName());
+        user.setPhoneNumber(request.getPhoneNumber());
+        userRepository.save(user);
+
+        // 2. Cập nhật hoặc tạo mới thông tin chi tiết vào bảng CandidateProfile
+        CandidateProfile profile = candidateProfileRepository.findByUser(user)
+            .orElse(new CandidateProfile());
+        
+        profile.setUser(user);
+        profile.setTitle(request.getTitle());
+        profile.setSummary(request.getBio());
+        profile.setSkills(request.getSkills());
+        profile.setExperience(request.getExperience());
+        profile.setDesiredSalary(request.getSalaryExpectation());
+        profile.setLocation(request.getLocation());
+        profile.setLevel(request.getLevel());
+        profile.setWorkType(request.getWorkType());
+        profile.setJobStatus(request.getJobStatus());
+        profile.setGithub(request.getGithub());
+        profile.setLinkedin(request.getLinkedin());
+        profile.setPortfolio(request.getPortfolio());
+
+        candidateProfileRepository.save(profile);
+
+        return ResponseEntity.ok(Map.of("message", "Cập nhật hồ sơ thành công!"));
     }
 }
